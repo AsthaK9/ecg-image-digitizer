@@ -1,0 +1,33 @@
+# ============================================================================
+# Development, Linting, Testing & Tooling Dependencies
+# Install on top of requirements.txt:
+#   pip install -r requirements.txt -r requirements-dev.txt
+# ============================================================================
+
+-r requirements.txt
+
+# --- Testing ------------------------------------------------------------------
+pytest==8.3.3
+pytest-cov==6.0.0
+pytest-mock==3.14.0
+
+# --- Formatting & Linting -------------------------------------------------------
+black==24.10.0
+isort==5.13.2
+ruff==0.7.4
+mypy==1.13.0
+
+# --- Type stubs -------------------------------------------------------------------
+types-PyYAML==6.0.12.20240917
+types-tqdm==4.66.0.20240417
+
+# --- Pre-commit hook runner ----------------------------------------------------
+pre-commit==4.0.1
+
+# --- Data version control (optional, recommended once real data is added) -------
+dvc==3.56.0
+
+# --- Notebook support (EDA only — never for production code) --------------------
+jupyterlab==4.3.1
+ipykernel==6.29.5
+matplotlib==3.9.2

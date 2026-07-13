@@ -1,0 +1,40 @@
+# ==============================================================================
+# Main Hydra entrypoint.
+#
+# This file only declares WHICH config group option is active for each group
+# (the "defaults list") plus a handful of truly global values. All actual
+# settings live inside configs/<group>/<option>.yaml so that experiments can
+# swap one group at a time without touching this file.
+#
+# Override any value from the CLI, e.g.:
+#   python scripts/train.py training=base data.dataloader.batch_size=64
+#   python scripts/train.py experiment=exp001_baseline
+# ==============================================================================
+
+defaults:
+  - data: base
+  - model: base
+  - training: base
+  - logging: base
+  - env: local
+  - _self_                 # config.yaml's own values apply here, BEFORE experiment
+  - experiment: null       # optional: set via `experiment=<name>` on the CLI;
+                            # placed last so it can override anything above,
+                            # including this file's own defaults
+
+# --- Global run identity -------------------------------------------------------
+seed: 42
+project_name: ecg-digitization
+run_name: ${now:%Y-%m-%d_%H-%M-%S}
+stage: null                # which pipeline stage is being trained: e.g. "segmentation",
+                            # "calibration", "panel_detection" — set per-experiment
+
+# --- Hydra behavior --------------------------------------------------------------
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: outputs/multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  job:
+    chdir: false            # keep working directory as repo root, not the run dir

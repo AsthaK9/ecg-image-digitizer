@@ -1,0 +1,28 @@
+# ==============================================================================
+# Model configuration — PLACEHOLDER.
+#
+# No architecture has been implemented yet (by design — see project roadmap).
+# This file exists purely to establish the config *contract* that future model
+# configs (e.g. configs/model/segmentation_unet.yaml) must satisfy, so that
+# training/inference code can be written against a stable interface now.
+#
+# When a real model is added:
+#   1. Add its class to src/ecg_digitization/models/registry.py
+#   2. Create configs/model/<name>.yaml following this same shape
+#   3. Select it with `model=<name>` on the CLI or in an experiment config
+# ==============================================================================
+
+name: placeholder
+task: null                 # one of: "calibration" | "panel_detection" | "segmentation"
+architecture: null         # registry key, resolved via models/registry.py
+pretrained: false
+params: {}                 # architecture-specific hyperparameters go here
+
+input:
+  channels: ${data.image.channels}
+  height: ${data.image.target_size[0]}
+  width: ${data.image.target_size[1]}
+
+output:
+  # Shape/semantics depend on task; left unset until a real model is defined.
+  num_classes: null

@@ -1,0 +1,37 @@
+# ==============================================================================
+# Logging & experiment tracking configuration.
+#
+# Two independent concerns, both configured here:
+#   1. Application/system logging (Python `logging`, console + file)
+#   2. Experiment tracking (TensorBoard local, Weights & Biases remote)
+# Both can be toggled independently — e.g. TensorBoard-only for quick local
+# debugging, W&B enabled for anything you want to compare/share later.
+# ==============================================================================
+
+log_level: INFO                          # DEBUG | INFO | WARNING | ERROR
+log_dir: ${env.artifacts_root}/logs/${run_name}
+log_format: "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+log_to_file: true
+
+tensorboard:
+  enabled: true
+  log_dir: ${logging.log_dir}/tensorboard
+  log_graph: false
+  flush_secs: 30
+
+wandb:
+  enabled: true
+  project: ${project_name}
+  entity: null                           # set to your W&B team/username, or via env var
+  name: ${run_name}
+  mode: online                           # online | offline | disabled
+  tags: []
+  notes: ""
+  log_model_checkpoints: true
+  log_frequency_steps: 50                # how often to log scalar metrics mid-epoch
+
+# --- What gets logged each validation epoch, independent of backend --------------
+artifacts_logged:
+  waveform_overlays: true      # predicted vs. ground-truth signal plots
+  confusion_of_qc_flags: false # placeholder toggle for future QC-flag analysis
+  sample_images: true

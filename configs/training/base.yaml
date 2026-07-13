@@ -1,0 +1,48 @@
+# ==============================================================================
+# Training configuration — optimizer, scheduler, loss, checkpointing, regularization.
+# Model-agnostic: the trainer reads this without knowing which architecture is used.
+# ==============================================================================
+
+epochs: 100
+device: ${env.device}
+mixed_precision: true
+gradient_clip_val: 1.0
+accumulate_grad_batches: 1
+
+optimizer:
+  name: adamw            # resolved via a factory in training/trainer.py
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  betas: [0.9, 0.999]
+
+scheduler:
+  name: cosine
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+
+loss:
+  name: null              # set per task/experiment once a model exists
+  params: {}
+
+early_stopping:
+  enabled: true
+  patience: 10
+  monitor: val/snr
+  mode: max                # "max" for SNR, "min" for a loss/error metric
+  min_delta: 0.001
+
+checkpoint:
+  dir: ${env.artifacts_root}/checkpoints/${run_name}
+  save_top_k: 3
+  monitor: val/snr
+  mode: max
+  save_last: true
+  filename_template: "epoch{epoch:03d}-{monitor:.4f}"
+
+validation:
+  every_n_epochs: 1
+  num_visualization_samples: 8   # predicted vs. true waveform overlays logged each val epoch
+
+resume:
+  enabled: false
+  checkpoint_path: null

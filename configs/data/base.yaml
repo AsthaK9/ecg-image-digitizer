@@ -1,0 +1,64 @@
+# ==============================================================================
+# Data configuration — dataset location, image/signal specs, splitting, loading.
+# Select via `data=base` (default) or create a sibling file (e.g. data/ptbxl_synthetic.yaml)
+# and select it with `data=ptbxl_synthetic`.
+# ==============================================================================
+
+name: base_ecg_dataset
+
+# --- Paths (resolved relative to env.data_root, see configs/env/) --------------
+root_dir: ${env.data_root}
+raw_dir: ${data.root_dir}/raw
+interim_dir: ${data.root_dir}/interim
+processed_dir: ${data.root_dir}/processed
+train_dir: ${data.processed_dir}/train
+val_dir: ${data.processed_dir}/val
+test_dir: ${data.processed_dir}/test
+
+# --- Image specification --------------------------------------------------------
+image:
+  target_size: [512, 512]     # [height, width] after resize, model input size
+  channels: 3
+  interpolation: bilinear
+
+# --- Signal specification (matches WFDB header expectations) ---------------------
+signal:
+  sampling_rate_hz: 500
+  num_leads: 12
+  lead_names: ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
+  target_duration_sec: 10
+
+# --- Calibration defaults (used only as fallback if not present in metadata) -----
+calibration:
+  default_mm_per_mv: 10.0
+  default_mm_per_sec: 25.0
+
+# --- Train/val/test split -----------------------------------------------------
+split:
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  split_by: record_id          # never split by image — avoids leakage across
+                                # multiple rendered images of the same signal
+  random_seed: ${seed}
+
+# --- DataLoader settings -------------------------------------------------------
+dataloader:
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  shuffle_train: true
+  drop_last_train: true
+
+# --- Augmentation ----------------------------------------------------------------
+# Actual Albumentations pipeline definitions live in
+# src/ecg_digitization/data/transforms.py — this section only toggles/parametrizes it.
+augmentation:
+  enabled: true
+  preset: default             # maps to a named pipeline in transforms.py
+  probability_occlusion: 0.15
+  probability_rotation: 0.3
+  max_rotation_deg: 8
+  probability_noise: 0.3
+  probability_perspective: 0.2

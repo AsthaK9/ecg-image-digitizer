@@ -1,0 +1,59 @@
+# --- Python ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+.Python
+
+# --- Virtual environments ---------------------------------------------------
+.venv/
+venv/
+env/
+
+# --- Testing / coverage ------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Hydra outputs ------------------------------------------------------------
+outputs/
+multirun/
+
+# --- Data & artifacts (tracked via DVC / external storage, not git) -----------
+/data/raw/*
+/data/interim/*
+/data/processed/*
+/data/external/*
+!/data/**/.gitkeep
+/artifacts/*
+!/artifacts/.gitkeep
+
+# --- Experiment tracking -------------------------------------------------------
+wandb/
+lightning_logs/
+tensorboard/
+*.tfevents.*
+
+# --- Checkpoints / model weights -----------------------------------------------
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# --- Environment / secrets ------------------------------------------------------
+.env
+*.env.local
+
+# --- Editors / OS -------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Jupyter --------------------------------------------------------------------
+.ipynb_checkpoints/

@@ -1,0 +1,42 @@
+# @package _global_
+# ==============================================================================
+# Example experiment config.
+#
+# NOTE: `# @package _global_` MUST be the very first line of the file — Hydra
+# only recognizes the directive there. Placed anywhere else, it's treated as
+# a plain comment and the file silently loads under `experiment.*` instead of
+# the top level, which overrides nothing you expect it to.
+#
+# This directive is what lets keys below apply at the TOP level of the
+# composed config (i.e. override `training.epochs`, not
+# `experiment.training.epochs`) — so an experiment file can override any leaf
+# value from any group without repeating the full config tree.
+#
+# Run with:
+#   python scripts/train.py experiment=exp001_baseline
+#
+# This file is intentionally a template — no model is selected yet because no
+# architecture has been implemented. Once one exists, set `model: <name>` and
+# `stage: <task>` below.
+# ==============================================================================
+
+run_name: exp001_baseline
+stage: null                 # e.g. "segmentation" once a model/task is defined
+
+training:
+  epochs: 50
+  optimizer:
+    lr: 5.0e-4
+  early_stopping:
+    patience: 8
+
+data:
+  dataloader:
+    batch_size: 32
+  augmentation:
+    preset: default
+
+logging:
+  wandb:
+    tags: ["baseline", "exp001"]
+    notes: "Baseline experiment template — placeholder until first model is implemented."
