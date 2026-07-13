@@ -20,7 +20,7 @@ tensorboard:
   flush_secs: 30
 
 wandb:
-  enabled: true
+  enabled: false
   project: ${project_name}
   entity: null                           # set to your W&B team/username, or via env var
   name: ${run_name}
