@@ -1,0 +1,26 @@
+[{"stream_name":"stdout","time":9.150020484,"data":"=== Starting ECG DigiAI Digitizer U-Net GPU Training on Kaggle ===\n"}
+,{"stream_name":"stdout","time":9.400773483,"data":"Active Compute Device: cuda\n"}
+,{"stream_name":"stdout","time":9.435789259,"data":"Device Name: Tesla T4\n"}
+,{"stream_name":"stdout","time":15.974292407,"data":"Found PTB-XL database at: /kaggle/input/datasets/khyeh0719/ptb-xl-dataset/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/ptbxl_database.csv\n"}
+,{"stream_name":"stdout","time":16.316976831,"data":"Total PTB-XL records: 21837\n"}
+,{"stream_name":"stdout","time":16.32224104,"data":"Loading training and validation signals from PTB-XL...\n"}
+,{"stream_name":"stdout","time":409.249644069,"data":"Loaded train: 2500 unique records, val: 500 unique records\n"}
+,{"stream_name":"stdout","time":409.257852711,"data":"Total training crops: 5000, Validation crops: 1000\n"}
+,{"stream_name":"stdout","time":478.233851459,"data":"Epoch 1/5 - Train Loss: 0.4359 (r=0.9878) | Val Loss: 0.0883 (r=0.9944, RMSE=0.0222 mV)\n"}
+,{"stream_name":"stdout","time":478.269061127,"data":"--\u003e Saved best digitizer checkpoint (Pearson r=0.9944) to ecg_digitizer_unet.pt\n"}
+,{"stream_name":"stdout","time":542.553880486,"data":"Epoch 2/5 - Train Loss: 0.0495 (r=0.9947) | Val Loss: 0.0280 (r=0.9955, RMSE=0.0207 mV)\n"}
+,{"stream_name":"stdout","time":542.574139755,"data":"--\u003e Saved best digitizer checkpoint (Pearson r=0.9955) to ecg_digitizer_unet.pt\n"}
+,{"stream_name":"stdout","time":610.277067056,"data":"Epoch 3/5 - Train Loss: 0.0230 (r=0.9956) | Val Loss: 0.0162 (r=0.9962, RMSE=0.0189 mV)\n"}
+,{"stream_name":"stdout","time":610.29701092,"data":"--\u003e Saved best digitizer checkpoint (Pearson r=0.9962) to ecg_digitizer_unet.pt\n"}
+,{"stream_name":"stdout","time":677.686075721,"data":"Epoch 4/5 - Train Loss: 0.0154 (r=0.9962) | Val Loss: 0.0113 (r=0.9970, RMSE=0.0187 mV)\n"}
+,{"stream_name":"stdout","time":677.707528232,"data":"--\u003e Saved best digitizer checkpoint (Pearson r=0.9970) to ecg_digitizer_unet.pt\n"}
+,{"stream_name":"stdout","time":745.199473903,"data":"Epoch 5/5 - Train Loss: 0.0131 (r=0.9961) | Val Loss: 0.0091 (r=0.9971, RMSE=0.0179 mV)\n"}
+,{"stream_name":"stdout","time":745.219764139,"data":"--\u003e Saved best digitizer checkpoint (Pearson r=0.9971) to ecg_digitizer_unet.pt\n"}
+,{"stream_name":"stdout","time":745.220135437,"data":"=== Digitizer Training Complete. Artifacts saved to working directory. ===\n"}
+,{"stream_name":"stderr","time":751.871823619,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":751.871858045,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":752.110602138,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":752.110629592,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":752.862445139,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":753.819727455,"data":"[NbConvertApp] Writing 349635 bytes to __results__.html\n"}
+]

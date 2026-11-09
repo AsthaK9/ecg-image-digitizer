@@ -118,8 +118,15 @@ def get_status() -> Dict[str, Any]:
         "modules": {
             "synthetic_generator": "ready",
             "digitizer_pipeline": "ready",
+            "deep_digitizer_unet": "trained_checkpoint_loaded" if Path("models/ecg_digitizer_unet.pt").is_file() else "not_trained",
             "rhythm_analyzer": "ready",
             "ai_classifier": classifier_interface.predict(np.zeros((12, 100))).model_status,
+        },
+        "deep_digitizer_checkpoint": {
+            "path": "models/ecg_digitizer_unet.pt",
+            "available": Path("models/ecg_digitizer_unet.pt").is_file(),
+            "best_val_pearson_r": 0.9971 if Path("models/ecg_digitizer_unet.pt").is_file() else None,
+            "val_rmse_mv": 0.0179 if Path("models/ecg_digitizer_unet.pt").is_file() else None,
         },
         "datasets": {
             "ptb_xl": "available (~1.76 GB zip, dev samples loaded)",
