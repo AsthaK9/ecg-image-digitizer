@@ -16,7 +16,8 @@ defaults:
   - model: base
   - training: base
   - logging: base
-  - env: local
+  - env: default
+  - optional env@_here_: local
   - _self_                 # config.yaml's own values apply here, BEFORE experiment
   - experiment: null       # optional: set via `experiment=<name>` on the CLI;
                             # placed last so it can override anything above,

@@ -11,7 +11,9 @@ dist/
 # --- Virtual environments ---------------------------------------------------
 .venv/
 venv/
-env/
+/env/
+!configs/env/
+configs/env/local.yaml
 
 # --- Testing / coverage ------------------------------------------------------
 .pytest_cache/
@@ -57,3 +59,5 @@ Thumbs.db
 
 # --- Jupyter --------------------------------------------------------------------
 .ipynb_checkpoints/
+
+folder-structure.txt

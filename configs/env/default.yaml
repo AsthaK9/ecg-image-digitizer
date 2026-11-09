@@ -1,0 +1,4 @@
+# Default environment configuration (cross-platform, container, and CI compatible)
+data_root: ${oc.env:ECG_DATA_ROOT,./data}
+artifacts_root: ${oc.env:ECG_ARTIFACTS_ROOT,./artifacts}
+device: ${oc.env:ECG_DEVICE,cpu}
