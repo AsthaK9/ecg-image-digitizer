@@ -607,8 +607,8 @@ def serve_index() -> str:
         <span>JIIT Noida | Final-Year B.Tech Major Project (ECE)</span>
     </div>
     <div style="display:flex; gap:10px; align-items:center;">
-        <span class="badge badge-success">Pipeline Active</span>
-        <span class="badge badge-warn">Model: model_not_trained</span>
+        <span class="badge badge-success">Digitizer U-Net: Trained (r = 0.9971)</span>
+        <span class="badge badge-warn">Classifier: model_not_trained</span>
     </div>
 </header>
 
@@ -889,6 +889,14 @@ def serve_index() -> str:
         <div class="card">
             <div class="card-header">
                 <span class="card-title">Lead Digitisation Scope & Validation Status</span>
+            </div>
+            <div id="lead-scope-banner" style="display:flex; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+                <div style="background:#e6f4ea; border:1px solid #137333; border-radius:6px; padding:8px 14px; font-size:12px; color:#137333; font-weight:600;">
+                    ✓ Formally Validated Leads: II, V1, II_RHYTHM (Trained ResNet-U-Net distribution)
+                </div>
+                <div style="background:#fef7e0; border:1px solid #b06000; border-radius:6px; padding:8px 14px; font-size:12px; color:#b06000; font-weight:600;">
+                    ⚠ Experimental Zero-Shot Leads: I, III, aVR, aVL, aVF, V2-V6 (Spatial receptive-field transfer)
+                </div>
             </div>
             <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
                 Academic Discipline: Leads II and V1 (and rhythm strip) are formally verified against the trained distribution. Leads I, III, aVR, aVL, aVF, and V2-V6 represent zero-shot transfer and are explicitly flagged as experimental.
