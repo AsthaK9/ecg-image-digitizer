@@ -528,63 +528,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-print("=== Starting ECG DigiAI Digitizer U-Net GPU Training on Kaggle ===")
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Active Compute Device: {{device}}")
-if torch.cuda.is_available():
-    print(f"Device Name: {{torch.cuda.get_device_name(0)}}")
 
-# 1. Locate PTB-XL Dataset on Kaggle
-input_dir = Path("/kaggle/input")
-csv_paths = list(input_dir.glob("**/ptbxl_database.csv"))
-if not csv_paths:
-    raise FileNotFoundError("Could not locate ptbxl_database.csv in /kaggle/input.")
-
-db_path = csv_paths[0]
-dataset_root = db_path.parent
-print(f"Found PTB-XL database at: {{db_path}}")
-
-df = pd.read_csv(db_path, index_col="ecg_id")
-print(f"Total PTB-XL records: {{len(df)}}")
-
-# 2. Stratified Split (Folds 1-8 Train, 9 Val, 10 Test)
-train_mask = df["strat_fold"].isin(range(1, 9))
-val_mask = df["strat_fold"] == 9
-test_mask = df["strat_fold"] == 10
-
-# 3. Load WFDB
-try:
-    import wfdb
-except ImportError:
-    os.system("pip install -q wfdb")
-    import wfdb
-
-def load_record_signals(df_subset, max_records=2500):
-    signals = []
-    valid_ids = []
-    count = 0
-    for ecg_id, row in df_subset.iterrows():
-        if count >= max_records:
-            break
-        fn = str(row["filename_lr"])
-        full_path = dataset_root / fn
-        try:
-            rec = wfdb.rdrecord(str(full_path))
-            sig = rec.p_signal.T  # (12, 1000)
-            if sig.shape == (12, 1000) and np.isfinite(sig).all():
-                signals.append(sig.astype(np.float32))
-                valid_ids.append(ecg_id)
-                count += 1
-        except Exception:
-            continue
-    return np.array(signals), valid_ids
-
-print("Loading training and validation signals from PTB-XL...")
-train_sigs, train_ids = load_record_signals(df[train_mask], max_records=2500)
-val_sigs, val_ids = load_record_signals(df[val_mask], max_records=500)
-print(f"Loaded train: {{len(train_sigs)}} signals, val: {{len(val_sigs)}} signals")
-
-# 4. In-Memory Synthetic ECG Crop Generator
+# 1. In-Memory Synthetic ECG Crop Generator
 def render_lead_crop(lead_signal, crop_h=128, crop_w=256, pixels_per_mv=59.055, seed=None):
     rng = np.random.RandomState(seed)
     canvas = np.full((crop_h, crop_w, 3), 252, dtype=np.uint8)
@@ -613,7 +558,7 @@ def render_lead_crop(lead_signal, crop_h=128, crop_w=256, pixels_per_mv=59.055, 
     cv2.polylines(canvas, [pts], isClosed=False, color=(20, 20, 30), thickness=2, lineType=cv2.LINE_AA)
     cv2.polylines(trace_mask, [pts], isClosed=False, color=255, thickness=2, lineType=cv2.LINE_8)
 
-    # Optional augmentation
+    # Optional augmentation: scanner sensor noise
     if rng.rand() > 0.5:
         noise = rng.normal(0, 3.0, canvas.shape).astype(np.float32)
         canvas = np.clip(canvas.astype(np.float32) + noise, 0, 255).astype(np.uint8)
@@ -623,6 +568,7 @@ def render_lead_crop(lead_signal, crop_h=128, crop_w=256, pixels_per_mv=59.055, 
     sig_tensor = torch.from_numpy(gt_resampled).float()
 
     return img_tensor, mask_tensor, sig_tensor, baseline_y
+
 
 class PairedCropDataset(Dataset):
     def __init__(self, signals, crops_per_record=2, seed=42):
@@ -642,15 +588,8 @@ class PairedCropDataset(Dataset):
         seg, s = self.samples[idx]
         return render_lead_crop(seg, crop_h=128, crop_w=256, seed=s)
 
-train_dataset = PairedCropDataset(train_sigs, crops_per_record=2, seed=42)
-val_dataset = PairedCropDataset(val_sigs, crops_per_record=2, seed=123)
 
-train_loader = DataLoader(train_dataset, batch_size={batch_size}, shuffle=True, num_workers=2, pin_memory=True)
-val_loader = DataLoader(val_dataset, batch_size={batch_size}, shuffle=False, num_workers=2, pin_memory=True)
-
-print(f"Total training crops: {{len(train_dataset)}}, Validation crops: {{len(val_dataset)}}")
-
-# 5. Architecture: ConvBlock2D and ECGDigitizerUNet
+# 2. Architecture: ConvBlock2D and ECGDigitizerUNet
 class ConvBlock2D(nn.Module):
     def __init__(self, in_c, out_c):
         super().__init__()
@@ -669,6 +608,7 @@ class ConvBlock2D(nn.Module):
         out = self.conv2(out)
         out = self.bn2(out)
         return self.relu(out + res)
+
 
 class ECGDigitizerUNet(nn.Module):
     def __init__(self, in_channels=3, base_channels=32, temperature=1.0, default_ppmv=59.055):
@@ -710,7 +650,7 @@ class ECGDigitizerUNet(nn.Module):
         seg_logits = self.head(d1)
         seg_probs = torch.sigmoid(seg_logits)
 
-        # Soft-Argmax
+        # Differentiable Soft-Argmax
         logits_map = seg_logits.squeeze(1)
         weights_y = F.softmax(logits_map / max(self.temperature, 1e-4), dim=1)
         y_grid = torch.arange(h, dtype=torch.float32, device=x.device).view(1, h, 1)
@@ -721,7 +661,8 @@ class ECGDigitizerUNet(nn.Module):
 
         return seg_logits, seg_probs, pixel_coords, calibrated_mv
 
-# 6. Composite Loss
+
+# 3. Composite Reconstruction Loss
 class CompositeReconstructionLoss(nn.Module):
     def __init__(self, bce_w=1.0, dice_w=1.0, l1_w=2.0, corr_w=1.0):
         super().__init__()
@@ -750,74 +691,143 @@ class CompositeReconstructionLoss(nn.Module):
         total = self.bce_w * bce + self.dice_w * dice + self.l1_w * l1 + self.corr_w * corr_loss
         return total, bce.item(), dice.item(), l1.item(), torch.mean(r).item()
 
-model = ECGDigitizerUNet(in_channels=3, base_channels=32, temperature=1.0).to(device)
-criterion = CompositeReconstructionLoss()
-optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=1e-4)
 
-# 7. Training & Validation Loop
-best_val_r = -1.0
-metrics_history = []
+def load_record_signals(df_subset, dataset_root, max_records=2500):
+    try:
+        import wfdb
+    except ImportError:
+        os.system("pip install -q wfdb")
+        import wfdb
 
-for epoch in range(1, {epochs} + 1):
-    model.train()
-    train_loss, train_r = 0.0, 0.0
-    for imgs, masks, sigs, bases in train_loader:
-        imgs, masks, sigs = imgs.to(device), masks.to(device), sigs.to(device)
-        bases = bases.to(device)
+    signals = []
+    valid_ids = []
+    count = 0
+    for ecg_id, row in df_subset.iterrows():
+        if count >= max_records:
+            break
+        fn = str(row["filename_lr"])
+        full_path = dataset_root / fn
+        try:
+            rec = wfdb.rdrecord(str(full_path))
+            sig = rec.p_signal.T  # (12, 1000)
+            if sig.shape == (12, 1000) and np.isfinite(sig).all():
+                signals.append(sig.astype(np.float32))
+                valid_ids.append(ecg_id)
+                count += 1
+        except Exception:
+            continue
+    return np.array(signals), valid_ids
 
-        optimizer.zero_grad()
-        logits, probs, coords, pred_mv = model(imgs, baseline_y=bases)
-        loss, bce_v, dice_v, l1_v, r_v = criterion(logits, probs, pred_mv, masks, sigs)
-        loss.backward()
-        optimizer.step()
 
-        train_loss += loss.item() * len(imgs)
-        train_r += r_v * len(imgs)
+def main():
+    print("=== Starting ECG DigiAI Digitizer U-Net GPU Training on Kaggle ===")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Active Compute Device: {{device}}")
+    if torch.cuda.is_available():
+        print(f"Device Name: {{torch.cuda.get_device_name(0)}}")
 
-    train_loss /= len(train_dataset)
-    train_r /= len(train_dataset)
+    # Locate PTB-XL Dataset on Kaggle
+    input_dir = Path("/kaggle/input")
+    csv_paths = list(input_dir.glob("**/ptbxl_database.csv"))
+    if not csv_paths:
+        raise FileNotFoundError("Could not locate ptbxl_database.csv in /kaggle/input.")
 
-    model.eval()
-    val_loss, val_r, val_rmse = 0.0, 0.0, 0.0
-    with torch.no_grad():
-        for imgs, masks, sigs, bases in val_loader:
+    db_path = csv_paths[0]
+    dataset_root = db_path.parent
+    print(f"Found PTB-XL database at: {{db_path}}")
+
+    df = pd.read_csv(db_path, index_col="ecg_id")
+    print(f"Total PTB-XL records: {{len(df)}}")
+
+    # Stratified Split (Folds 1-8 Train, 9 Val, 10 Test)
+    train_mask = df["strat_fold"].isin(range(1, 9))
+    val_mask = df["strat_fold"] == 9
+    test_mask = df["strat_fold"] == 10
+
+    print("Loading training and validation signals from PTB-XL...")
+    train_sigs, train_ids = load_record_signals(df[train_mask], dataset_root, max_records=2500)
+    val_sigs, val_ids = load_record_signals(df[val_mask], dataset_root, max_records=500)
+    print(f"Loaded train: {{len(train_sigs)}} unique records, val: {{len(val_sigs)}} unique records")
+
+    train_dataset = PairedCropDataset(train_sigs, crops_per_record=2, seed=42)
+    val_dataset = PairedCropDataset(val_sigs, crops_per_record=2, seed=123)
+
+    train_loader = DataLoader(train_dataset, batch_size={batch_size}, shuffle=True, num_workers=2, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size={batch_size}, shuffle=False, num_workers=2, pin_memory=True)
+
+    print(f"Total training crops: {{len(train_dataset)}}, Validation crops: {{len(val_dataset)}}")
+
+    model = ECGDigitizerUNet(in_channels=3, base_channels=32, temperature=1.0).to(device)
+    criterion = CompositeReconstructionLoss()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-4, weight_decay=1e-4)
+
+    best_val_r = -1.0
+    metrics_history = []
+
+    for epoch in range(1, {epochs} + 1):
+        model.train()
+        train_loss, train_r = 0.0, 0.0
+        for imgs, masks, sigs, bases in train_loader:
             imgs, masks, sigs = imgs.to(device), masks.to(device), sigs.to(device)
-            bases = bases.to(device)
+            bases = bases.float().to(device)
 
+            optimizer.zero_grad()
             logits, probs, coords, pred_mv = model(imgs, baseline_y=bases)
-            v_loss, _, _, l1_val, r_val = criterion(logits, probs, pred_mv, masks, sigs)
+            loss, bce_v, dice_v, l1_v, r_v = criterion(logits, probs, pred_mv, masks, sigs)
+            loss.backward()
+            optimizer.step()
 
-            val_loss += v_loss.item() * len(imgs)
-            val_r += r_val * len(imgs)
-            val_rmse += torch.sqrt(torch.mean((pred_mv - sigs) ** 2, dim=1)).sum().item()
+            train_loss += loss.item() * len(imgs)
+            train_r += r_v * len(imgs)
 
-    val_loss /= len(val_dataset)
-    val_r /= len(val_dataset)
-    val_rmse /= len(val_dataset)
+        train_loss /= len(train_dataset)
+        train_r /= len(train_dataset)
 
-    print(f"Epoch {{epoch}}/{epochs} - Train Loss: {{train_loss:.4f}} (r={{train_r:.4f}}) | Val Loss: {{val_loss:.4f}} (r={{val_r:.4f}}, RMSE={{val_rmse:.4f}} mV)")
-    metrics_history.append({{
-        "epoch": epoch,
-        "train_loss": round(train_loss, 4),
-        "train_pearson_r": round(train_r, 4),
-        "val_loss": round(val_loss, 4),
-        "val_pearson_r": round(val_r, 4),
-        "val_rmse_mv": round(val_rmse, 4),
-    }})
+        model.eval()
+        val_loss, val_r, val_rmse = 0.0, 0.0, 0.0
+        with torch.no_grad():
+            for imgs, masks, sigs, bases in val_loader:
+                imgs, masks, sigs = imgs.to(device), masks.to(device), sigs.to(device)
+                bases = bases.float().to(device)
 
-    if val_r > best_val_r:
-        best_val_r = val_r
-        torch.save({{
-            "model_state_dict": model.state_dict(),
-            "config": {{"in_channels": 3, "base_channels": 32, "temperature": 1.0, "default_pixels_per_mv": 59.055}},
+                logits, probs, coords, pred_mv = model(imgs, baseline_y=bases)
+                v_loss, _, _, l1_val, r_val = criterion(logits, probs, pred_mv, masks, sigs)
+
+                val_loss += v_loss.item() * len(imgs)
+                val_r += r_val * len(imgs)
+                val_rmse += torch.sqrt(torch.mean((pred_mv - sigs) ** 2, dim=1)).sum().item()
+
+        val_loss /= len(val_dataset)
+        val_r /= len(val_dataset)
+        val_rmse /= len(val_dataset)
+
+        print(f"Epoch {{epoch}}/{epochs} - Train Loss: {{train_loss:.4f}} (r={{train_r:.4f}}) | Val Loss: {{val_loss:.4f}} (r={{val_r:.4f}}, RMSE={{val_rmse:.4f}} mV)")
+        metrics_history.append({{
             "epoch": epoch,
-            "best_val_pearson_r": best_val_r,
-            "val_rmse_mv": val_rmse,
-        }}, "ecg_digitizer_unet.pt")
-        print(f"--> Saved best digitizer checkpoint (Pearson r={{best_val_r:.4f}}) to ecg_digitizer_unet.pt")
+            "train_loss": round(train_loss, 4),
+            "train_pearson_r": round(train_r, 4),
+            "val_loss": round(val_loss, 4),
+            "val_pearson_r": round(val_r, 4),
+            "val_rmse_mv": round(val_rmse, 4),
+        }})
 
-with open("digitizer_metrics.json", "w") as f:
-    json.dump({{"best_val_pearson_r": round(best_val_r, 4), "epochs": metrics_history}}, f, indent=2)
+        if val_r > best_val_r:
+            best_val_r = val_r
+            torch.save({{
+                "model_state_dict": model.state_dict(),
+                "config": {{"in_channels": 3, "base_channels": 32, "temperature": 1.0, "default_pixels_per_mv": 59.055}},
+                "epoch": epoch,
+                "best_val_pearson_r": best_val_r,
+                "val_rmse_mv": val_rmse,
+            }}, "ecg_digitizer_unet.pt")
+            print(f"--> Saved best digitizer checkpoint (Pearson r={{best_val_r:.4f}}) to ecg_digitizer_unet.pt")
 
-print("=== Digitizer Training Complete. Artifacts saved to working directory. ===")
+    with open("digitizer_metrics.json", "w") as f:
+        json.dump({{"best_val_pearson_r": round(best_val_r, 4), "epochs": metrics_history}}, f, indent=2)
+
+    print("=== Digitizer Training Complete. Artifacts saved to working directory. ===")
+
+
+if __name__ == "__main__":
+    main()
 '''

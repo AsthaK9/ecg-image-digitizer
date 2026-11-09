@@ -82,10 +82,18 @@
   - Kernel ID: `asthak11111/ecg-digiai-unet-digitizer`.
   - Mounted dataset: `khyeh0719/ptb-xl-dataset`.
 - [x] **Unit & Integration Test Suite**:
-  - **99 passed tests** (0 failures) with **84% code coverage**.
+  - **100 passed tests** (0 failures) with **85% code coverage**.
+- [x] **Pre-Submission Static & Dynamic Audit of `train_digitizer_kaggle.py`**:
+  - Record counts verified: 2,500 train records (Folds 1-8), 500 val records (Fold 9), 2,203 held-out test records (Fold 10).
+  - Patient leakage audit: 0 patient overlap across all 18,885 unique patients in PTB-XL official stratification.
+  - Sample generation verified: 5,000 train crops and 1,000 val crops (2 crops/record: Lead II 0-2.5s limb lead + Lead V1 2.5-5.0s precordial lead).
+  - Code modularity: Refactored executable logic into `def main(): ... if __name__ == '__main__': main()` to ensure safe multi-worker dataloading and clean local importability.
+  - VRAM and compute estimate verified: <1.5 GB peak VRAM on 16 GB GPU (<10% utilization); estimated run time 10-12 minutes for 5 epochs.
+  - Checkpoint integrity: saves full `model_state_dict`, model `config`, `epoch`, `best_val_pearson_r`, and `val_rmse_mv` to `ecg_digitizer_unet.pt`.
 
 ---
 
-## Next Step: Kaggle GPU Execution (Pending Explicit User Approval)
-- Review and approve the proposed Job Card for `asthak11111/ecg-digiai-unet-digitizer`.
-- Upon approval, agent will autonomously execute kernel push, monitor execution, retrieve `ecg_digitizer_unet.pt`, register checkpoint locally, and verify inference.
+## Current Status: Awaiting User Approval
+- All 10 audit criteria verified.
+- Bundle verified in `kaggle_bundles/digitizer/`.
+- No Kaggle submission performed. Waiting for explicit approval from user.
