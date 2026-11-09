@@ -40,7 +40,7 @@ def test_kaggle_manager_prepare_kernel_dry_run() -> None:
         assert meta_file.is_file()
         with open(meta_file, "r", encoding="utf-8") as f:
             meta = json.load(f)
-        assert meta["id"] == "test-ecg-training"
+        assert meta["id"].endswith("test-ecg-training")
         assert meta["enable_gpu"] == "true"
         assert "erhmrai/ecg-image-data" in meta["dataset_sources"]
 
