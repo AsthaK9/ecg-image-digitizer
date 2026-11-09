@@ -8,6 +8,17 @@
 
 ---
 
+## Technical Strategy Review & Primary Objective Realignment
+- **Primary Focus**: Image-to-Signal Digitisation (Component B). The previous `ECGResNet1D` experiment operates strictly on numerical signals for downstream classification (Component C) and does not train the core image digitizer.
+- **Kaggle GPU Quota Policy**: No Kaggle GPU quota will be consumed on downstream classification. Remote training will be dedicated to deep learning image-to-signal reconstruction (`ECGDigitizerUNet`).
+- **Data Pairing Audit**:
+  - `khyeh0719/ptb-xl-dataset` contains 12-lead digital signals but no scanned paper images.
+  - `erhmrai/ecg-image-data` contains single-beat crops with no paired digital signals.
+  - **Strategy**: Supervised image-to-signal training leverages on-the-fly degraded synthetic paper generation from PTB-XL records to preserve exact ground-truth trace masks and calibrated waveform targets.
+- **Detailed Strategic Document**: See [`docs/implementation_roadmap.md`](docs/implementation_roadmap.md).
+
+---
+
 ## Session 1 Verified Milestones (Completed)
 - [x] Environment & Hydra config fix: Added `configs/env/default.yaml` with dynamic env interpolation, updated `configs/config.yaml`, and unignored `configs/env/` in `.gitignore`.
 - [x] Dataset pairing analysis (`docs/dataset_pairing.md`): Discovered Kaggle images are unpaired beat plots; established ground-truth evaluation discipline using PTB-XL paired synthetic rendering.
@@ -27,7 +38,7 @@
   - Signal Quality Index (good / acceptable / low) with lead-off/flatline detection.
   - Rule-based clinical findings for Sinus Bradycardia ($<60\text{ bpm}$) and Sinus Tachycardia ($>100\text{ bpm}$).
 - [x] **AI Multi-Label Classifier & Model Safety Interface** (`ecg_digitization.models`, `inference.classifier_interface`):
-  - 1D ResNet baseline architecture (`ECGResNet1D`) taking 12-lead signals `(batch, 12, seq_len)`.
+  - 1D ResNet baseline architecture (`ECGResNet1D`) retained as auxiliary downstream evaluation module.
   - CPU smoke test: Verified forward pass, finite BCE loss backward pass, checkpoint saving, and checkpoint loading.
   - Clinical decision-support safety: Returns explicit `model_not_trained` status when checkpoint is absent; returns `Not supported by available labels` for sparse direct labels (`STE_`); zero fabricated predictions.
 - [x] **Explainable Decision-Support Report Generator** (`ecg_digitization.inference.report_generator`):
@@ -37,19 +48,16 @@
 - [x] **Demonstrable FastAPI Service & Interactive Web Application** (`ecg_digitization.service.app`):
   - Six interactive dashboard screens: Dashboard, Synthetic Generator, Digitisation Pipeline, Reconstructed Waveforms, AI Analysis & Screening, Clinical Report.
   - REST API endpoints for status, sample listing, synthetic generation, digitisation, analysis, and report generation/download.
-  - Windows Python 3.14 compatible (bypasses AnyIO Starlette thread deadlocks).
-- [x] **Kaggle GPU Training Orchestration Wrapper** (`ecg_digitization.training.kaggle_manager`):
-  - Kaggle CLI check and credential masking.
-  - Generates `kernel-metadata.json` and standalone `train_kaggle.py` script.
-  - Generates exact dry-run submission command without autonomous remote job submission risks.
-- [x] **Comprehensive Documentation & Academic Traceability**:
-  - Updated `README.md`, `docs/architecture.md`, `docs/traceability_matrix.md`, and created `docs/demo_guide.md`.
+  - Windows Python 3.14 compatible.
+- [x] **Kaggle GPU Training Infrastructure** (`ecg_digitization.training.kaggle_manager`):
+  - Automated Kaggle CLI execution wrapper with credential discovery.
+  - Packaging of kernel metadata and standalone GPU scripts.
 - [x] **Full Test Suite Verification**:
   - **87/87 tests passed** with **85% code coverage**.
 
 ---
 
-## Next Steps for User
-1. Execute full GPU training on Kaggle using the prepared bundle in `artifacts/kaggle_kernel_bundle/` via the dry-run command.
-2. Load resulting trained weights checkpoint `ecg_resnet1d_baseline.pt` into `ECGClassifierInterface` for quantitative validation.
-3. Conduct final academic mid-viva presentation and report submission at JIIT Noida.
+## Next Steps: Image-to-Signal Digitizer Training
+1. Implement `ECGDigitizerUNet` deep segmentation and differentiable soft-argmax extraction module.
+2. Package digitization-focused Kaggle training bundle (`asthak11111/ecg-digiai-unet-training`).
+3. Present new Digitisation Job Card for explicit user authorization before Kaggle GPU submission.
