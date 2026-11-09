@@ -82,18 +82,24 @@
   - Kernel ID: `asthak11111/ecg-digiai-unet-digitizer`.
   - Mounted dataset: `khyeh0719/ptb-xl-dataset`.
 - [x] **Unit & Integration Test Suite**:
-  - **100 passed tests** (0 failures) with **85% code coverage**.
+  - **101 passed tests** (0 failures) with **85% code coverage**.
 - [x] **Pre-Submission Static & Dynamic Audit of `train_digitizer_kaggle.py`**:
   - Record counts verified: 2,500 train records (Folds 1-8), 500 val records (Fold 9), 2,203 held-out test records (Fold 10).
   - Patient leakage audit: 0 patient overlap across all 18,885 unique patients in PTB-XL official stratification.
   - Sample generation verified: 5,000 train crops and 1,000 val crops (2 crops/record: Lead II 0-2.5s limb lead + Lead V1 2.5-5.0s precordial lead).
+  - Explicit scope limitation: Two-lead proof of concept (Lead II and V1) to validate the core deep digitizer architecture before multi-lead expansion.
   - Code modularity: Refactored executable logic into `def main(): ... if __name__ == '__main__': main()` to ensure safe multi-worker dataloading and clean local importability.
-  - VRAM and compute estimate verified: <1.5 GB peak VRAM on 16 GB GPU (<10% utilization); estimated run time 10-12 minutes for 5 epochs.
+  - Resource labeling: Parameter count (1.98M) is mathematically exact; VRAM (<1.5 GB) and runtime (10-12 min) are analytical and extrapolated estimates, not empirical telemetric measurements.
   - Checkpoint integrity: saves full `model_state_dict`, model `config`, `epoch`, `best_val_pearson_r`, and `val_rmse_mv` to `ecg_digitizer_unet.pt`.
+- [x] **Targeted Deterministic Waveform & Alignment Validation** (`scripts/verify_crop_alignment.py`, `tests/unit/test_crop_verification.py`):
+  - Verified landmark alignment: baseline (y=64.0, err=1.0 px), P-peak (y=49.24, err=0.24 px), T-peak (y=40.40, err=0.40 px).
+  - Identified canvas vertical clipping bound: 128px canvas with 64px baseline accommodates up to +1.08 mV without top clipping; documented for future full-sheet 256px lead crops.
+  - Model forward and backward pass confirmed: 71/71 parameters receive finite, non-null gradients on synthetic batches.
+  - Initial Pearson r (-0.2794) explained: Expected random-initialization behavior of untrained weights; CPU smoke test showed rapid convergence to r=0.84 within 3 optimization steps.
 
 ---
 
-## Current Status: Awaiting User Approval
-- All 10 audit criteria verified.
-- Bundle verified in `kaggle_bundles/digitizer/`.
+## Current Status: Verified & Ready (Awaiting User Approval)
+- All audit criteria and targeted validation checks passed.
+- Test suite: 101/101 passing.
 - No Kaggle submission performed. Waiting for explicit approval from user.
