@@ -1,46 +1,38 @@
-# ============================================================================
-# ECG Image Digitization — Core Runtime Dependencies
-# Python 3.11
-#
-# Pin exact versions for reproducibility. After changing this file, regenerate
-# a fully resolved lockfile with:
-#   pip install -r requirements.txt
-#   pip freeze > requirements.lock.txt
-# ============================================================================
+# ECG Digitization - Python 3.14 compatible dependencies
 
-# --- Deep Learning ----------------------------------------------------------
-torch==2.5.1
-torchvision==0.20.1
+# Deep Learning
+torch
+torchvision
 
-# --- Computer Vision ---------------------------------------------------------
-opencv-python-headless==4.10.0.84   # headless: no GUI deps, correct for servers/CI
-albumentations==1.4.18
+# Computer Vision
+opencv-python-headless>=4.10.0
+albumentations>=1.4.18,<3
 
-# --- Numerics / Scientific ----------------------------------------------------
-numpy==1.26.4
-scipy==1.14.1
-pandas==2.2.3
+# Scientific Computing
+numpy>=2.0,<3
+scipy>=1.15,<2
+pandas>=2.2.3,<4
 
-# --- Signal / ECG-specific ----------------------------------------------------
-wfdb==4.1.2                          # read/write WFDB .hea/.dat records
+# ECG Signal Processing
+wfdb>=4.1.2,<5
 
-# --- Experiment Configuration --------------------------------------------------
-hydra-core==1.3.2
-omegaconf==2.3.0
+# Configuration
+hydra-core>=1.3.2
+omegaconf>=2.3.0
 
-# --- Experiment Tracking & Logging ---------------------------------------------
-wandb==0.18.7
-tensorboard==2.18.0
+# Experiment Tracking
+wandb>=0.18.7
+tensorboard>=2.18.0
 
-# --- Image I/O ------------------------------------------------------------------
-Pillow==11.0.0
+# Image Processing
+Pillow>=11.0.0
 
-# --- Utilities --------------------------------------------------------------------
-tqdm==4.66.5
-python-dotenv==1.0.1
-rich==13.9.4                         # readable structured console logging
+# Utilities
+tqdm>=4.66.5
+python-dotenv>=1.0.1
+rich>=13.9.4
 
-# --- Serving (API layer, used once inference pipeline exists) -------------------
-fastapi==0.115.5
-uvicorn[standard]==0.32.1
-pydantic==2.9.2
+# API / Backend
+fastapi>=0.115.5
+uvicorn[standard]>=0.32.1
+pydantic>=2.9.2
