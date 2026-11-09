@@ -112,7 +112,45 @@
 
 ---
 
-## Current Status: Kaggle GPU Training Complete & Verified
-- `ECGDigitizerUNet` trained on Kaggle GPU and registered locally.
-- Full test suite: **101/101 passed** (85% coverage).
-- Application and service ready for demonstration.
+## Session 4 Verified Milestones: Real ECG Image Inference Validation (Completed)
+- [x] **Real ECG Sample Selection & Extraction** (`data/real_ecg_eval/samples/`):
+  - Extracted 4 diverse real cardiac beat images from `data/raw/ecg-image-data/ecg-image-data.zip`:
+    - `N10007.png`: Normal Sinus Rhythm (N)
+    - `V1001.png`: Premature Ventricular Contraction (V)
+    - `F0.png`: Fusion of ventricular and normal beat (F)
+    - `M0.png`: Myocardial Infarction / Abnormal beat (M)
+- [x] **Adapted Preprocessing Engine** (`src/ecg_digitization/inference/deep_digitizer.py`):
+  - Automated Content Bounding Box Detection: Localizes active plot canvas, stripping outer whitespace margins (`(67, 43)-(372, 247)`).
+  - Ink Normalization: Standardizes varied plot ink colors (cyan `[191,191,0]`, green `[0,128,0]`, black `[20,20,30]`) onto light paper background.
+  - Geometry Rescaling: Adapts real crops to model resolution ($128 \times 256 \times 3$).
+- [x] **Deep Inference & Waveform Digitisation**:
+  - Executed trained `ECGDigitizerUNet` on all 4 real ECG samples.
+  - High model trace confidence across all real samples:
+    - `N10007.png`: 100.00% mean confidence (min: 99.73%)
+    - `V1001.png`: 100.00% mean confidence (min: 99.94%)
+    - `F0.png`: 99.66% mean confidence (min: 12.73%)
+    - `M0.png`: 100.00% mean confidence (min: 100.00%)
+- [x] **Reconstructed Waveform CSV Exports** (`data/real_ecg_eval/reconstructed_csv/`):
+  - `N10007_digitized_waveform.csv`: 256 samples with coordinates, relative amplitudes, and nominal voltages.
+  - `V1001_digitized_waveform.csv`: 256 samples with coordinates, relative amplitudes, and nominal voltages.
+  - `F0_digitized_waveform.csv`: 256 samples with coordinates, relative amplitudes, and nominal voltages.
+  - `M0_digitized_waveform.csv`: 256 samples with coordinates, relative amplitudes, and nominal voltages.
+- [x] **3-Panel Visual Overlay Exports** (`data/real_ecg_eval/overlays/`):
+  - `N10007_overlay_plot.png`, `V1001_overlay_plot.png`, `F0_overlay_plot.png`, `M0_overlay_plot.png`:
+    1. Original crop with reconstructed waveform overlaid in magenta directly on the real trace.
+    2. Normalized model input with predicted Soft-Argmax centerline and isoelectric baseline.
+    3. Reconstructed 1D time-series with uncertainty shading.
+- [x] **Rigorous Clinical Calibration & Scope Discipline**:
+  - Ground-truth accuracy is explicitly **not claimed** on real beat plots due to lack of paired digital signals.
+  - Physical calibration is explicitly marked `calibration_reliable = False` on beat plots due to absence of millimeter grids and 1 mV calibration pulses; nominal voltages are approximations.
+  - Single-lead crop scope documented: Model currently digitizes single-lead crops (Lead II / V1 representation), not yet simultaneous full 12-lead sheets.
+- [x] **Unit & Integration Test Suite**:
+  - **104 passed tests** (0 failures) with **85% code coverage**.
+
+---
+
+## Current Status: Real Image Validation Complete & Tested
+- Real ECG beat images validated through deep U-Net digitizer.
+- Artifacts exported to `data/real_ecg_eval/`.
+- Test suite: **104/104 passed**.
+- Ready for full 12-lead multi-lead integration milestone.

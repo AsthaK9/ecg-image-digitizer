@@ -11,6 +11,11 @@ from ecg_digitization.inference.classifier_interface import (
     ECGClassifierInterface,
     TargetFinding,
 )
+from ecg_digitization.inference.deep_digitizer import (
+    DeepCropDigitizer,
+    RealCropDigitizationResult,
+    RealCropPreprocessingResult,
+)
 from ecg_digitization.inference.report_generator import (
     ClinicalReportGenerator,
 )
@@ -18,8 +23,11 @@ from ecg_digitization.inference.report_generator import (
 __all__ = [
     "ClassificationReport",
     "ClinicalReportGenerator",
+    "DeepCropDigitizer",
     "ECGClassifierInterface",
     "ECGRhythmAnalyzer",
+    "RealCropDigitizationResult",
+    "RealCropPreprocessingResult",
     "RhythmAnalysisResult",
     "TargetFinding",
 ]

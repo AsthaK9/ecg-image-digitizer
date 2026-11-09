@@ -1,0 +1,82 @@
+[
+  {
+    "sample_name": "N10007.png",
+    "category": "Normal Sinus Rhythm (N)",
+    "sample_image_path": "data\\real_ecg_eval\\samples\\N10007.png",
+    "csv_path": "data\\real_ecg_eval\\reconstructed_csv\\N10007_digitized_waveform.csv",
+    "overlay_path": "data\\real_ecg_eval\\overlays\\N10007_overlay_plot.png",
+    "content_bbox": [
+      67,
+      43,
+      372,
+      247
+    ],
+    "mean_confidence": 1.0,
+    "min_confidence": 0.9973,
+    "nominal_voltage_min_mv": -1.0266,
+    "nominal_voltage_max_mv": 1.0837,
+    "peak_to_peak_mv": 2.1103,
+    "calibration_reliable": false,
+    "calibration_note": "Uncalibrated single-beat crop: Image lacks printed millimeter grid and 1 mV calibration pulse. Voltages are estimated assuming standard clinical 10 mm/mV gain and baseline centered at mid-crop."
+  },
+  {
+    "sample_name": "V1001.png",
+    "category": "Premature Ventricular Contraction (V)",
+    "sample_image_path": "data\\real_ecg_eval\\samples\\V1001.png",
+    "csv_path": "data\\real_ecg_eval\\reconstructed_csv\\V1001_digitized_waveform.csv",
+    "overlay_path": "data\\real_ecg_eval\\overlays\\V1001_overlay_plot.png",
+    "content_bbox": [
+      67,
+      41,
+      372,
+      247
+    ],
+    "mean_confidence": 1.0,
+    "min_confidence": 0.9994,
+    "nominal_voltage_min_mv": -1.0336,
+    "nominal_voltage_max_mv": 1.0577,
+    "peak_to_peak_mv": 2.0913,
+    "calibration_reliable": false,
+    "calibration_note": "Uncalibrated single-beat crop: Image lacks printed millimeter grid and 1 mV calibration pulse. Voltages are estimated assuming standard clinical 10 mm/mV gain and baseline centered at mid-crop."
+  },
+  {
+    "sample_name": "F0.png",
+    "category": "Fusion Beat (F)",
+    "sample_image_path": "data\\real_ecg_eval\\samples\\F0.png",
+    "csv_path": "data\\real_ecg_eval\\reconstructed_csv\\F0_digitized_waveform.csv",
+    "overlay_path": "data\\real_ecg_eval\\overlays\\F0_overlay_plot.png",
+    "content_bbox": [
+      66,
+      43,
+      372,
+      247
+    ],
+    "mean_confidence": 0.9966,
+    "min_confidence": 0.1273,
+    "nominal_voltage_min_mv": -1.0281,
+    "nominal_voltage_max_mv": 1.0807,
+    "peak_to_peak_mv": 2.1088,
+    "calibration_reliable": false,
+    "calibration_note": "Uncalibrated single-beat crop: Image lacks printed millimeter grid and 1 mV calibration pulse. Voltages are estimated assuming standard clinical 10 mm/mV gain and baseline centered at mid-crop."
+  },
+  {
+    "sample_name": "M0.png",
+    "category": "Myocardial Infarction / Abnormal Beat (M)",
+    "sample_image_path": "data\\real_ecg_eval\\samples\\M0.png",
+    "csv_path": "data\\real_ecg_eval\\reconstructed_csv\\M0_digitized_waveform.csv",
+    "overlay_path": "data\\real_ecg_eval\\overlays\\M0_overlay_plot.png",
+    "content_bbox": [
+      67,
+      44,
+      371,
+      247
+    ],
+    "mean_confidence": 1.0,
+    "min_confidence": 1.0,
+    "nominal_voltage_min_mv": -1.0266,
+    "nominal_voltage_max_mv": 1.0669,
+    "peak_to_peak_mv": 2.0935,
+    "calibration_reliable": false,
+    "calibration_note": "Uncalibrated single-beat crop: Image lacks printed millimeter grid and 1 mV calibration pulse. Voltages are estimated assuming standard clinical 10 mm/mV gain and baseline centered at mid-crop."
+  }
+]
