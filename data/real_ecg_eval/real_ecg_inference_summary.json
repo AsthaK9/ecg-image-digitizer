@@ -78,5 +78,45 @@
     "peak_to_peak_mv": 2.0935,
     "calibration_reliable": false,
     "calibration_note": "Uncalibrated single-beat crop: Image lacks printed millimeter grid and 1 mV calibration pulse. Voltages are estimated assuming standard clinical 10 mm/mV gain and baseline centered at mid-crop."
+  },
+  {
+    "sample_name": "S100.png",
+    "category": "Supraventricular Premature Beat (S)",
+    "sample_image_path": "data\\real_ecg_eval\\samples\\S100.png",
+    "csv_path": "data\\real_ecg_eval\\reconstructed_csv\\S100_digitized_waveform.csv",
+    "overlay_path": "data\\real_ecg_eval\\overlays\\S100_overlay_plot.png",
+    "content_bbox": [
+      67,
+      43,
+      372,
+      247
+    ],
+    "mean_confidence": 1.0,
+    "min_confidence": 0.9974,
+    "nominal_voltage_min_mv": -1.0264,
+    "nominal_voltage_max_mv": 1.0667,
+    "peak_to_peak_mv": 2.0931,
+    "calibration_reliable": false,
+    "calibration_note": "Uncalibrated single-beat crop: Image lacks printed millimeter grid and 1 mV calibration pulse. Voltages are estimated assuming standard clinical 10 mm/mV gain and baseline centered at mid-crop."
+  },
+  {
+    "sample_name": "Q1.png",
+    "category": "Paced / Unclassifiable Beat (Q)",
+    "sample_image_path": "data\\real_ecg_eval\\samples\\Q1.png",
+    "csv_path": "data\\real_ecg_eval\\reconstructed_csv\\Q1_digitized_waveform.csv",
+    "overlay_path": "data\\real_ecg_eval\\overlays\\Q1_overlay_plot.png",
+    "content_bbox": [
+      66,
+      44,
+      372,
+      247
+    ],
+    "mean_confidence": 0.9923,
+    "min_confidence": 0.0054,
+    "nominal_voltage_min_mv": -1.0336,
+    "nominal_voltage_max_mv": 0.9122,
+    "peak_to_peak_mv": 1.9459,
+    "calibration_reliable": false,
+    "calibration_note": "Uncalibrated single-beat crop: Image lacks printed millimeter grid and 1 mV calibration pulse. Voltages are estimated assuming standard clinical 10 mm/mV gain and baseline centered at mid-crop."
   }
 ]

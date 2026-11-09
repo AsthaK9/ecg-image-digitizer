@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import cv2
+import matplotlib
+matplotlib.use("Agg")
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,6 +83,8 @@ class DigitizeRequest(BaseModel):
     record_id: Optional[str] = "demo_00001"
     image_base64: Optional[str] = None
     layout_hint: str = "3x4_1"
+    extractor_mode: str = "deep"
+    is_calibration_reliable: Optional[bool] = None
 
 
 class AnalyzeRequest(BaseModel):
@@ -150,11 +154,49 @@ def list_samples() -> Dict[str, Any]:
     heas = [f.stem for f in p_ptb.glob("*.hea")] if p_ptb.is_dir() else []
 
     p_img = Path("data/interim/ecg_image_sample")
-    imgs = [f.name for f in p_img.glob("*.png")] if p_img.is_dir() else []
+    imgs_interim = [f.name for f in p_img.glob("*.png")] if p_img.is_dir() else []
+
+    p_eval = Path("data/real_ecg_eval/samples")
+    imgs_eval = [f.name for f in p_eval.glob("*.png")] if p_eval.is_dir() else []
+
+    all_real_imgs = sorted(list(set(imgs_interim + imgs_eval)))
 
     return {
         "ptbxl_records": sorted(heas),
-        "real_images": sorted(imgs),
+        "real_images": all_real_imgs,
+    }
+
+
+@app.get("/api/sample-image/{filename}")
+def get_sample_image(filename: str) -> Dict[str, Any]:
+    """Returns base64 encoding and metadata for a pre-stored sample ECG image."""
+    paths_to_check = [
+        Path("data/real_ecg_eval/samples") / filename,
+        Path("data/interim/ecg_image_sample") / filename,
+        Path("data/interim") / filename,
+    ]
+    target_path = None
+    for p in paths_to_check:
+        if p.is_file():
+            target_path = p
+            break
+    if not target_path:
+        raise HTTPException(status_code=404, detail=f"Sample image '{filename}' not found.")
+
+    img = cv2.imread(str(target_path))
+    if img is None:
+        raise HTTPException(status_code=500, detail="Could not read sample image.")
+
+    h, w = img.shape[:2]
+    # Single-beat or small crops are flagged as single_lead with nominal calibration
+    is_single_crop = (w < 800 or h < 600)
+    return {
+        "filename": filename,
+        "width": w,
+        "height": h,
+        "image_b64": encode_img_b64(img),
+        "suggested_layout": "single_lead" if is_single_crop else "3x4_1",
+        "is_calibration_reliable": not is_single_crop,
     }
 
 
@@ -223,18 +265,56 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
     if img is None:
         raise HTTPException(status_code=400, detail="No valid ECG image provided.")
 
-    digit_res = digitizer_pipeline.digitize(img, layout_hint=req.layout_hint)
+    if img.shape[0] < 50 or img.shape[1] < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Image dimensions too small (< 50x50 px). Please provide a valid ECG image.",
+        )
 
-    # Save visualization plot to buffer
+    if img.size == 0 or np.all(img == 0) or np.all(img == 255):
+        raise HTTPException(
+            status_code=400,
+            detail="Image is blank or empty. Please provide a valid ECG image.",
+        )
+
+    # Automatic single-lead layout inference for small crops if requested or defaulted
+    layout_to_use = req.layout_hint
+    if layout_to_use == "auto" or (img.shape[1] < 800 and layout_to_use == "3x4_1" and req.image_base64 is not None):
+        layout_to_use = "single_lead"
+
+    is_cal_reliable = req.is_calibration_reliable if req.is_calibration_reliable is not None else (layout_to_use != "single_lead")
+    cal_note = "Standard clinical paper calibration (25 mm/s, 10 mm/mV)" if is_cal_reliable else "Uncalibrated image: nominal mV estimates"
+    digit_res = digitizer_pipeline.digitize(
+        img,
+        layout_hint=layout_to_use,
+        extractor_mode=req.extractor_mode,
+        is_calibration_reliable=is_cal_reliable,
+        calibration_note=cal_note,
+    )
+
+    # Save visualization plot, diagnostic sheet overlay, and unified CSV
     plot_b64 = ""
+    overlay_b64 = ""
     try:
         temp_plot = Path("data/interim") / f"plot_{rec_id}.png"
         digit_res.reconstructed_ecg.save_plot(temp_plot)
         if temp_plot.is_file():
             with open(temp_plot, "rb") as f:
                 plot_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        temp_overlay = Path("data/interim") / f"sheet_overlay_{rec_id}.png"
+        digit_res.generate_sheet_overlay(temp_overlay)
+        if temp_overlay.is_file():
+            with open(temp_overlay, "rb") as f:
+                overlay_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        # Export unified multi-lead CSV
+        csv_dir = Path("data/interim/session1_demo_output")
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        unified_csv = csv_dir / f"{rec_id}_signal.csv"
+        digit_res.reconstructed_ecg.save_csv(unified_csv)
     except Exception as exc:
-        logger.warning("Could not generate plot preview: %s", exc)
+        logger.warning("Could not generate visualization artifacts: %s", exc)
 
     # Compute evaluation fidelity if ground truth is available
     fidelity_metrics = None
@@ -265,6 +345,7 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
     session_records[rec_id] = session_records.get(rec_id, {})
     session_records[rec_id]["digit_result"] = digit_res
     session_records[rec_id]["plot_b64"] = plot_b64
+    session_records[rec_id]["sheet_overlay_b64"] = overlay_b64
     session_records[rec_id]["fidelity_metrics"] = fidelity_metrics
 
     # Serialize lead waveforms for interactive preview
@@ -274,18 +355,26 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
             "time_s": l.time_seconds.tolist()[:250],
             "voltage_mv": l.voltage_mv.tolist()[:250],
             "completeness": l.completeness,
+            "is_trained_lead": l.is_trained_lead,
+            "validation_status": l.validation_status,
+            "confidence": l.confidence,
+            "is_calibration_reliable": l.is_calibration_reliable,
         }
 
     return {
         "record_id": rec_id,
         "success": digit_res.success,
         "warnings": digit_res.warnings,
+        "extractor_mode_used": digit_res.extractor_mode_used,
         "deskew_angle_deg": digit_res.preprocessed.skew_angle_deg,
         "deskewed_b64": encode_img_b64(digit_res.preprocessed.deskewed),
         "grid_suppressed_b64": encode_img_b64(digit_res.preprocessed.grid_suppressed),
         "binary_trace_b64": encode_img_b64(digit_res.preprocessed.binary_trace),
         "plot_b64": plot_b64,
+        "sheet_overlay_b64": overlay_b64,
         "leads": leads_data,
+        "is_calibration_reliable": is_cal_reliable,
+        "calibration_note": cal_note,
         "fidelity_metrics": fidelity_metrics,
     }
 
@@ -357,6 +446,29 @@ def analyze_ecg(req: AnalyzeRequest) -> Dict[str, Any]:
     }
 
 
+@app.get("/api/export/csv/{record_id}")
+def export_csv(record_id: str):
+    """Exports and downloads the reconstructed 12-lead digital ECG waveform as CSV."""
+    if record_id in session_records and "digit_result" in session_records[record_id]:
+        ecg = session_records[record_id]["digit_result"].reconstructed_ecg
+        out_path = Path("data/interim/session1_demo_output") / f"{record_id}_signal.csv"
+        ecg.save_csv(out_path)
+        if out_path.is_file():
+            return Response(
+                content=out_path.read_text(encoding="utf-8"),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename={record_id}_signal.csv"},
+            )
+    p = Path("data/interim/session1_demo_output") / f"{record_id}_signal.csv"
+    if p.is_file():
+        return Response(
+            content=p.read_text(encoding="utf-8"),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={record_id}_signal.csv"},
+        )
+    raise HTTPException(status_code=404, detail=f"No reconstructed CSV found for record '{record_id}'.")
+
+
 @app.get("/api/report/{record_id}/json")
 def get_report_json(record_id: str) -> Dict[str, Any]:
     """Retrieves full structured JSON decision-support report."""
@@ -415,7 +527,7 @@ def get_kaggle_status() -> Dict[str, Any]:
 @app.get("/", response_class=HTMLResponse)
 def serve_index() -> str:
     """Serves complete single-page interactive application for ECG DigiAI."""
-    html_content = """<!DOCTYPE html>
+    html_content = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -632,32 +744,110 @@ def serve_index() -> str:
     <div id="tab-digitize" class="tab-content">
         <div class="card">
             <div class="card-header">
-                <span class="card-title">ECG Image Digitisation Pipeline</span>
-                <button class="btn btn-primary" onclick="runDigitization()">Run End-to-End Digitisation</button>
+                <span class="card-title">ECG Input Image Selection & Upload</span>
+                <div style="font-size:12px; color:var(--text-secondary);">Supports full 12-lead paper sheets and single-lead/beat crops</div>
+            </div>
+
+            <!-- Input Selection Modes -->
+            <div class="grid-3" style="margin-bottom:16px;">
+                <div class="card" style="margin-bottom:0; cursor:pointer; border:2px solid var(--primary);" id="card-mode-upload" onclick="setInputMode('upload')">
+                    <div style="font-weight:700; color:var(--primary); margin-bottom:4px;">📁 Upload Image from PC</div>
+                    <div style="font-size:12px; color:var(--text-secondary);">Drag & drop or browse any PNG/JPG file from your local disk.</div>
+                </div>
+                <div class="card" style="margin-bottom:0; cursor:pointer;" id="card-mode-sample" onclick="setInputMode('sample')">
+                    <div style="font-weight:700; color:var(--text); margin-bottom:4px;">🖼️ Pre-Curated Real ECG Images</div>
+                    <div style="font-size:12px; color:var(--text-secondary);">Select from 6 real Kaggle patient beat classes (N, V, F, M, S, Q).</div>
+                </div>
+                <div class="card" style="margin-bottom:0; cursor:pointer;" id="card-mode-synthetic" onclick="setInputMode('synthetic')">
+                    <div style="font-weight:700; color:var(--text); margin-bottom:4px;">📄 Tab 2 Synthetic Paper Sheet</div>
+                    <div style="font-size:12px; color:var(--text-secondary);">Use the 12-lead clinical sheet generated from PTB-XL in Tab 2.</div>
+                </div>
+            </div>
+
+            <!-- Validation Alert Box -->
+            <div id="upload-alert" style="display:none; background:#fce8e6; border:1px solid #c5221f; border-radius:4px; padding:10px 14px; font-size:13px; color:#c5221f; margin-bottom:16px;"></div>
+
+            <!-- Mode 1: Local Upload Dropzone -->
+            <div id="panel-upload" style="margin-bottom:16px;">
+                <div id="drop-zone" style="border:2px dashed var(--primary); border-radius:8px; padding:24px; text-align:center; background:#f8faff; cursor:pointer; transition:all 0.2s;" onclick="document.getElementById('file-input').click()">
+                    <div style="font-size:32px; margin-bottom:8px;">📤</div>
+                    <div style="font-size:14px; font-weight:600; color:var(--primary); margin-bottom:4px;">Click to Browse or Drag & Drop ECG Image Here</div>
+                    <div style="font-size:12px; color:var(--text-secondary);">Supports PNG, JPG, JPEG (Minimum resolution: 50x50 px)</div>
+                    <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg" style="display:none;" onchange="handleFileSelect(event)">
+                </div>
+            </div>
+
+            <!-- Mode 2: Sample Picker -->
+            <div id="panel-sample" style="display:none; margin-bottom:16px;">
+                <div class="grid-2">
+                    <div>
+                        <label>Select Real Kaggle ECG Sample</label>
+                        <select id="real-sample-select" onchange="loadSelectedSample()">
+                            <option value="N10007.png">N10007.png — Normal Sinus Rhythm (N)</option>
+                            <option value="V1001.png">V1001.png — Premature Ventricular Contraction (V)</option>
+                            <option value="F0.png">F0.png — Fusion Beat (F)</option>
+                            <option value="M0.png">M0.png — Myocardial Infarction / Abnormal (M)</option>
+                            <option value="S100.png">S100.png — Supraventricular Premature Beat (S)</option>
+                            <option value="Q1.png">Q1.png — Paced / Unclassifiable Beat (Q)</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:flex-end;">
+                        <button class="btn btn-secondary" style="width:100%; margin-bottom:12px;" onclick="loadSelectedSample()">Load Selected Sample</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode 3: Synthetic Note -->
+            <div id="panel-synthetic" style="display:none; margin-bottom:16px; background:#e8f0fe; padding:12px 16px; border-radius:6px; font-size:13px; color:var(--primary);">
+                Using active synthetic 12-lead clinical ECG sheet generated in Tab 2.
+            </div>
+
+            <!-- Active Input Preview -->
+            <div style="margin-bottom:20px;">
+                <label>Active Input Image Preview</label>
+                <div class="img-preview-box" id="active-input-preview-box" style="min-height:160px; max-height:300px;">
+                    <span style="color:#777;">No image selected. Please choose a file, sample, or synthetic sheet above.</span>
+                </div>
+                <div id="active-input-meta" style="font-size:12px; color:var(--text-secondary); margin-top:6px;"></div>
+            </div>
+
+            <!-- Digitisation Pipeline Controls -->
+            <div class="card-header" style="margin-top:20px;">
+                <span class="card-title">Pipeline Execution Configuration</span>
+                <button class="btn btn-primary" id="btn-run-digitize" onclick="runDigitization()">⚡ Run End-to-End Digitisation</button>
             </div>
             <div class="grid-4" style="margin-bottom:16px;">
                 <div>
                     <label>Layout Template</label>
                     <select id="digit-layout">
-                        <option value="3x4_1">3x4 + 1 Rhythm Strip (Standard)</option>
-                        <option value="12x1">12x1 Stacked Leads</option>
+                        <option value="3x4_1">3x4 + 1 Rhythm Strip (Standard Clinical Sheet)</option>
+                        <option value="12x1">12x1 Stacked Multi-Lead Sheet</option>
+                        <option value="single_lead">Single Lead / Beat Crop (e.g. Lead II)</option>
                     </select>
                 </div>
                 <div>
-                    <label>Deskew Correction</label>
+                    <label>Waveform Extractor</label>
+                    <select id="digit-extractor">
+                        <option value="deep">Deep U-Net (Trained Checkpoint)</option>
+                        <option value="classical">Classical Preprocessing (Median)</option>
+                        <option value="hybrid">Hybrid (Deep Validated / Classical Exp)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Calibration Discipline</label>
+                    <select id="digit-cal-reliable">
+                        <option value="true">Standard Clinical Paper (25 mm/s, 10 mm/mV) [Calibrated]</option>
+                        <option value="false">Uncalibrated / Single Beat Crop [Nominal mV Estimates]</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Deskew Status</label>
                     <input type="text" id="digit-deskew-info" value="Automatic (Hough Line)" disabled>
-                </div>
-                <div>
-                    <label>Grid Suppression</label>
-                    <input type="text" value="Red-Channel / HSV Gating" disabled>
-                </div>
-                <div>
-                    <label>Resampling Target</label>
-                    <input type="text" value="100 Hz Uniform" disabled>
                 </div>
             </div>
 
-            <div class="grid-3">
+            <!-- Intermediate Visualisation Panels -->
+            <div class="grid-3" style="margin-bottom:16px;">
                 <div>
                     <label>1. Deskewed Image</label>
                     <div class="img-preview-box" id="prev-deskewed"><span>Pending execution</span></div>
@@ -671,6 +861,13 @@ def serve_index() -> str:
                     <div class="img-preview-box" id="prev-binary"><span>Pending execution</span></div>
                 </div>
             </div>
+
+            <div>
+                <label>4. 12-Lead Diagnostic Sheet Overlay (Detected Bounding Boxes & Crimson Red Reconstructed Traces)</label>
+                <div class="img-preview-box" id="prev-sheet-overlay" style="min-height:300px;">
+                    <span>Run digitisation to generate the full-sheet overlay with lead bounding boxes and waveforms.</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -679,11 +876,31 @@ def serve_index() -> str:
         <div class="card">
             <div class="card-header">
                 <span class="card-title">Calibrated 12-Lead Waveform Reconstruction</span>
-                <button class="btn btn-secondary" onclick="downloadCSV()">Download Reconstructed CSV</button>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-secondary" onclick="downloadCSV()">Download Reconstructed CSV</button>
+                    <button class="btn btn-primary" onclick="proceedToAnalysis()">Proceed to Clinical Analysis &rarr;</button>
+                </div>
             </div>
             <div id="plot-preview-container" class="img-preview-box" style="min-height:350px;">
                 <span>Run digitisation in Tab 3 to view reconstructed waveforms.</span>
             </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Lead Digitisation Scope & Validation Status</span>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+                Academic Discipline: Leads II and V1 (and rhythm strip) are formally verified against the trained distribution. Leads I, III, aVR, aVL, aVF, and V2-V6 represent zero-shot transfer and are explicitly flagged as experimental.
+            </div>
+            <table id="lead-status-table">
+                <thead>
+                    <tr><th>Lead Name</th><th>Validation Scope</th><th>Extractor Method</th><th>Confidence</th><th>Calibration Status</th></tr>
+                </thead>
+                <tbody id="lead-status-tbody">
+                    <tr><td colspan="5" style="text-align:center; color:#777;">Run digitisation to view per-lead status.</td></tr>
+                </tbody>
+            </table>
         </div>
 
         <div class="card" id="fidelity-card" style="display:none;">
@@ -750,12 +967,164 @@ def serve_index() -> str:
 
 <script>
     let currentRecordId = "00001_lr";
+    let activeImageBase64 = null;
+    let activeInputMode = "upload";
 
     function switchTab(tabId) {
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        event.target.classList.add('active');
-        document.getElementById('tab-' + tabId).classList.add('active');
+        const tabBtn = Array.from(document.querySelectorAll('.nav-tab')).find(el => el.getAttribute('onclick')?.includes(tabId));
+        if (tabBtn) tabBtn.classList.add('active');
+        const contentEl = document.getElementById('tab-' + tabId);
+        if (contentEl) contentEl.classList.add('active');
+    }
+
+    function setInputMode(mode) {
+        activeInputMode = mode;
+        const modes = ['upload', 'sample', 'synthetic'];
+        modes.forEach(m => {
+            const card = document.getElementById('card-mode-' + m);
+            const panel = document.getElementById('panel-' + m);
+            if (m === mode) {
+                card.style.border = '2px solid var(--primary)';
+                card.querySelector('div:first-child').style.color = 'var(--primary)';
+                panel.style.display = 'block';
+            } else {
+                card.style.border = '1px solid var(--border)';
+                card.querySelector('div:first-child').style.color = 'var(--text)';
+                panel.style.display = 'none';
+            }
+        });
+
+        const alertBox = document.getElementById('upload-alert');
+        alertBox.style.display = 'none';
+
+        if (mode === 'sample') {
+            loadSelectedSample();
+        } else if (mode === 'synthetic') {
+            activeImageBase64 = null;
+            currentRecordId = document.getElementById('synth-record-select').value || "00001_lr";
+            const synthBox = document.getElementById('synth-preview-box');
+            const synthImg = synthBox.querySelector('img');
+            if (synthImg) {
+                document.getElementById('active-input-preview-box').innerHTML = '<img src="' + synthImg.src + '" />';
+                document.getElementById('active-input-meta').innerText = 'Using Tab 2 Synthetic 12-lead paper sheet (Record: ' + currentRecordId + ')';
+            } else {
+                document.getElementById('active-input-preview-box').innerHTML = '<span style="color:#777;">No synthetic sheet rendered yet. Render one in Tab 2 or click below.</span>';
+                document.getElementById('active-input-meta').innerText = 'Render a sheet in Tab 2 first.';
+            }
+            document.getElementById('digit-layout').value = "3x4_1";
+            document.getElementById('digit-cal-reliable').value = "true";
+        }
+    }
+
+    // Drag-and-Drop setup
+    const dropZone = document.getElementById('drop-zone');
+    if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '#e8f0fe';
+                dropZone.style.borderColor = 'var(--primary-dark)';
+            }, false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.style.background = '#f8faff';
+                dropZone.style.borderColor = 'var(--primary)';
+            }, false);
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                processUploadedFile(files[0]);
+            }
+        });
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            processUploadedFile(file);
+        }
+    }
+
+    function processUploadedFile(file) {
+        const alertBox = document.getElementById('upload-alert');
+        alertBox.style.display = 'none';
+
+        if (!file.type.startsWith('image/')) {
+            alertBox.innerText = '❌ Error: The uploaded file is not a valid image format (PNG, JPG required).';
+            alertBox.style.display = 'block';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            const testImg = new Image();
+            testImg.onload = function() {
+                if (testImg.naturalWidth < 50 || testImg.naturalHeight < 50) {
+                    alertBox.innerText = `❌ Error: Image dimensions are too small (${testImg.naturalWidth}x${testImg.naturalHeight} px). Minimum required size is 50x50 px.`;
+                    alertBox.style.display = 'block';
+                    activeImageBase64 = null;
+                    document.getElementById('active-input-preview-box').innerHTML = '<span style="color:#c5221f;">Image rejected: dimensions too small (< 50x50 px).</span>';
+                    return;
+                }
+
+                activeImageBase64 = dataUrl;
+                currentRecordId = file.name.replace(/\.[^/.]+$/, "");
+
+                document.getElementById('active-input-preview-box').innerHTML = '<img src="' + dataUrl + '" style="max-height:280px;" />';
+                const isSingleCrop = (testImg.naturalWidth < 800 || testImg.naturalHeight < 600);
+                document.getElementById('active-input-meta').innerText = `Uploaded: ${file.name} | Dimensions: ${testImg.naturalWidth} x ${testImg.naturalHeight} px | Size: ${(file.size/1024).toFixed(1)} KB | Inferred: ${isSingleCrop ? 'Single Beat/Crop' : 'Full 12-Lead Sheet'}`;
+
+                if (isSingleCrop) {
+                    document.getElementById('digit-layout').value = "single_lead";
+                    document.getElementById('digit-cal-reliable').value = "false";
+                } else {
+                    document.getElementById('digit-layout').value = "3x4_1";
+                    document.getElementById('digit-cal-reliable').value = "true";
+                }
+            };
+            testImg.onerror = function() {
+                alertBox.innerText = '❌ Error: Failed to parse uploaded image file. Please provide a valid PNG or JPG.';
+                alertBox.style.display = 'block';
+            };
+            testImg.src = dataUrl;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function loadSelectedSample() {
+        const filename = document.getElementById('real-sample-select').value;
+        const alertBox = document.getElementById('upload-alert');
+        alertBox.style.display = 'none';
+
+        document.getElementById('active-input-preview-box').innerHTML = '<span>Loading real sample ' + filename + '...</span>';
+
+        try {
+            const res = await fetch('/api/sample-image/' + filename);
+            if (!res.ok) {
+                throw new Error('Failed to load sample image: HTTP ' + res.status);
+            }
+            const data = await res.json();
+            activeImageBase64 = "data:image/png;base64," + data.image_b64;
+            currentRecordId = filename.replace(/\.[^/.]+$/, "");
+
+            document.getElementById('active-input-preview-box').innerHTML = '<img src="' + activeImageBase64 + '" style="max-height:280px;" />';
+            document.getElementById('active-input-meta').innerText = `Sample: ${filename} | Dimensions: ${data.width} x ${data.height} px | Suggested Layout: ${data.suggested_layout.toUpperCase()} | Calibrated: ${data.is_calibration_reliable}`;
+
+            document.getElementById('digit-layout').value = data.suggested_layout;
+            document.getElementById('digit-cal-reliable').value = data.is_calibration_reliable ? "true" : "false";
+        } catch (err) {
+            alertBox.innerText = '❌ Error loading sample: ' + err.message;
+            alertBox.style.display = 'block';
+        }
     }
 
     async function runGenerateSynthetic() {
@@ -786,43 +1155,103 @@ def serve_index() -> str:
 
     function sendToDigitizer() {
         switchTab('digitize');
-        document.querySelectorAll('.nav-tab')[2].classList.add('active');
-        document.querySelectorAll('.nav-tab')[1].classList.remove('active');
+        setInputMode('synthetic');
         runDigitization();
     }
 
     async function runDigitization() {
-        document.getElementById('prev-deskewed').innerHTML = '<span>Processing...</span>';
-        document.getElementById('prev-suppressed').innerHTML = '<span>Processing...</span>';
-        document.getElementById('prev-binary').innerHTML = '<span>Processing...</span>';
+        const alertBox = document.getElementById('upload-alert');
+        alertBox.style.display = 'none';
 
-        const res = await fetch('/api/digitize', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
+        document.getElementById('prev-deskewed').innerHTML = '<span>Processing deskew...</span>';
+        document.getElementById('prev-suppressed').innerHTML = '<span>Suppressing grid...</span>';
+        document.getElementById('prev-binary').innerHTML = '<span>Segmenting trace...</span>';
+        document.getElementById('prev-sheet-overlay').innerHTML = '<span>Running trace extraction & overlay...</span>';
+
+        const runBtn = document.getElementById('btn-run-digitize');
+        if (runBtn) {
+            runBtn.disabled = true;
+            runBtn.innerText = '⏳ Digitising...';
+        }
+
+        try {
+            const payload = {
                 record_id: currentRecordId,
-                layout_hint: document.getElementById('digit-layout').value
-            })
-        });
-        const data = await res.json();
-
-        document.getElementById('prev-deskewed').innerHTML = '<img src="data:image/png;base64,' + data.deskewed_b64 + '" />';
-        document.getElementById('prev-suppressed').innerHTML = '<img src="data:image/png;base64,' + data.grid_suppressed_b64 + '" />';
-        document.getElementById('prev-binary').innerHTML = '<img src="data:image/png;base64,' + data.binary_trace_b64 + '" />';
-        document.getElementById('digit-deskew-info').value = 'Deskew angle: ' + data.deskew_angle_deg.toFixed(2) + ' deg';
-
-        if (data.plot_b64) {
-            document.getElementById('plot-preview-container').innerHTML = '<img src="data:image/png;base64,' + data.plot_b64 + '" style="max-width:100%;" />';
-        }
-
-        if (data.fidelity_metrics) {
-            document.getElementById('fidelity-card').style.display = 'block';
-            let tbody = '';
-            for (const [lead, m] of Object.entries(data.fidelity_metrics.per_lead)) {
-                tbody += `<tr><td><strong>${lead}</strong></td><td>${m.pearson_r.toFixed(4)}</td><td>${m.rmse_mv.toFixed(4)}</td><td>${m.snr_db.toFixed(1)}</td><td>${(m.completeness*100).toFixed(1)}%</td></tr>`;
+                layout_hint: document.getElementById('digit-layout').value,
+                extractor_mode: document.getElementById('digit-extractor').value,
+                is_calibration_reliable: document.getElementById('digit-cal-reliable').value === 'true',
+            };
+            if (activeImageBase64) {
+                payload.image_base64 = activeImageBase64;
             }
-            document.querySelector('#fidelity-table tbody').innerHTML = tbody;
+
+            const res = await fetch('/api/digitize', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || ('HTTP Error ' + res.status));
+            }
+
+            const data = await res.json();
+
+            document.getElementById('prev-deskewed').innerHTML = '<img src="data:image/png;base64,' + data.deskewed_b64 + '" />';
+            document.getElementById('prev-suppressed').innerHTML = '<img src="data:image/png;base64,' + data.grid_suppressed_b64 + '" />';
+            document.getElementById('prev-binary').innerHTML = '<img src="data:image/png;base64,' + data.binary_trace_b64 + '" />';
+            document.getElementById('digit-deskew-info').value = 'Deskew angle: ' + data.deskew_angle_deg.toFixed(2) + ' deg';
+
+            if (data.sheet_overlay_b64) {
+                document.getElementById('prev-sheet-overlay').innerHTML = '<img src="data:image/png;base64,' + data.sheet_overlay_b64 + '" style="max-width:100%;" />';
+            }
+
+            if (data.plot_b64) {
+                document.getElementById('plot-preview-container').innerHTML = '<img src="data:image/png;base64,' + data.plot_b64 + '" style="max-width:100%;" />';
+            }
+
+            if (data.leads) {
+                let leadTbody = '';
+                for (const [lead, info] of Object.entries(data.leads)) {
+                    let badge = info.is_trained_lead
+                        ? '<span class="status-pill status-good">VALIDATED (TRAINED)</span>'
+                        : '<span class="status-pill status-untrained">EXPERIMENTAL (ZERO-SHOT)</span>';
+                    let calStr = info.is_calibration_reliable ? 'Calibrated (10 mm/mV)' : 'Nominal Estimate';
+                    leadTbody += `<tr><td><strong>${lead}</strong></td><td>${badge}</td><td>${data.extractor_mode_used.toUpperCase()}</td><td>${(info.confidence*100).toFixed(1)}%</td><td>${calStr}</td></tr>`;
+                }
+                document.getElementById('lead-status-tbody').innerHTML = leadTbody;
+            }
+
+            if (data.fidelity_metrics) {
+                document.getElementById('fidelity-card').style.display = 'block';
+                let tbody = '';
+                for (const [lead, m] of Object.entries(data.fidelity_metrics.per_lead)) {
+                    tbody += `<tr><td><strong>${lead}</strong></td><td>${m.pearson_r.toFixed(4)}</td><td>${m.rmse_mv.toFixed(4)}</td><td>${m.snr_db.toFixed(1)}</td><td>${(m.completeness*100).toFixed(1)}%</td></tr>`;
+                }
+                document.querySelector('#fidelity-table tbody').innerHTML = tbody;
+            } else {
+                document.getElementById('fidelity-card').style.display = 'none';
+            }
+
+        } catch (err) {
+            alertBox.innerText = '❌ Digitisation Error: ' + err.message;
+            alertBox.style.display = 'block';
+            document.getElementById('prev-deskewed').innerHTML = '<span style="color:#c5221f;">Error</span>';
+            document.getElementById('prev-suppressed').innerHTML = '<span style="color:#c5221f;">Error</span>';
+            document.getElementById('prev-binary').innerHTML = '<span style="color:#c5221f;">Error</span>';
+            document.getElementById('prev-sheet-overlay').innerHTML = '<span style="color:#c5221f;">Error</span>';
+        } finally {
+            if (runBtn) {
+                runBtn.disabled = false;
+                runBtn.innerText = '⚡ Run End-to-End Digitisation';
+            }
         }
+    }
+
+    function proceedToAnalysis() {
+        switchTab('analysis');
+        runAnalysis();
     }
 
     async function runAnalysis() {
@@ -836,9 +1265,10 @@ def serve_index() -> str:
         const rhythm = data.rhythm_analysis;
         document.getElementById('hr-display').innerText = (rhythm.heart_rate_bpm ? rhythm.heart_rate_bpm.toFixed(1) : '--') + ' BPM';
         document.getElementById('rhythm-details').innerHTML = `
+            <div>Lead Analyzed: <strong>${rhythm.lead_analyzed}</strong></div>
             <div>Quality Index: <strong>${rhythm.signal_quality.toUpperCase()}</strong></div>
             <div>R-Peaks Detected: <strong>${rhythm.num_r_peaks}</strong></div>
-            <div>Mean RR: <strong>${rhythm.mean_rr_interval_s || 'N/A'} s</strong></div>
+            <div>Mean RR: <strong>${rhythm.mean_rr_interval_s ? rhythm.mean_rr_interval_s.toFixed(3) : 'N/A'} s</strong></div>
             <div>Findings: <strong>${rhythm.rule_findings.join(', ')}</strong></div>
         `;
 
@@ -855,7 +1285,7 @@ def serve_index() -> str:
     }
 
     function downloadCSV() {
-        window.open('/data/interim/session1_demo_output/demo_00001_signal.csv', '_blank');
+        window.open('/api/export/csv/' + currentRecordId, '_blank');
     }
 
     function openPrintableReport() {
@@ -868,7 +1298,8 @@ def serve_index() -> str:
 
     // Auto-initialize on load
     window.onload = function() {
-        document.getElementById('report-frame').src = '/api/report/' + currentRecordId + '/html';
+        // Pre-select upload mode
+        setInputMode('upload');
     };
 </script>
 </body>

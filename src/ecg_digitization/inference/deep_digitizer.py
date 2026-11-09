@@ -25,6 +25,7 @@ import numpy as np
 import torch
 
 from ecg_digitization.models.digitizer_unet import ECGDigitizerUNet
+from ecg_digitization.reconstruction.extractor import ExtractedTrace
 
 logger = logging.getLogger(__name__)
 
@@ -308,4 +309,114 @@ class DeepCropDigitizer:
             calibrated_voltage_mv=calibrated_mv,
             is_calibration_reliable=is_reliable_cal,
             calibration_note=cal_note,
+        )
+
+    def extract_trace_from_lead_crop(
+        self,
+        lead_crop: np.ndarray,
+        binary_crop: np.ndarray,
+        lead_name: str,
+        expected_baseline_y: float,
+        is_rhythm: bool = False,
+    ) -> ExtractedTrace:
+        """Extracts 1D continuous waveform from a lead crop within a 12-lead sheet.
+
+        Applies:
+        - 1:1 physical scale alignment (128px vertical window centered on expected baseline).
+        - Active trace span bounding to discard unprinted margins or lead labels.
+        - 4-chunk sub-window division and stitching for rhythm strips to preserve temporal resolution.
+        - Soft-Argmax continuous coordinate extraction with confidence tracking.
+        - Provenance tagging (Validated vs Experimental lead).
+        """
+        h, w = lead_crop.shape[:2]
+        if w == 0 or h == 0:
+            raise ValueError(f"Empty lead crop provided: shape {lead_crop.shape}")
+
+        # Scan active trace columns using binary mask
+        active_cols = np.where(binary_crop.sum(axis=0) > 0)[0] if binary_crop.size > 0 else np.array([])
+        if len(active_cols) < 5:
+            # Fallback to full width if trace mask is sparse
+            col_min, col_max = 0, w - 1
+        else:
+            col_min = int(active_cols[0])
+            col_max = int(active_cols[-1])
+        active_w = max(1, col_max - col_min + 1)
+
+        is_trained = lead_name in ("II", "V1", "II_RHYTHM")
+        validation_status = "validated_lead" if is_trained else "experimental_unvalidated"
+
+        if is_rhythm:
+            # Rhythm strip (~10s, typically ~1476px): chunk into 4 contiguous 2.5s sub-windows
+            num_chunks = 4
+            chunk_w = active_w / float(num_chunks)
+            chunk_trajs = []
+            chunk_confs = []
+
+            for i in range(num_chunks):
+                c1 = int(round(col_min + i * chunk_w))
+                c2 = min(w, int(round(col_min + (i + 1) * chunk_w)))
+                cur_w = max(1, c2 - c1)
+                chunk_slice = lead_crop[:, c1:c2]
+
+                # Center 128px window around expected baseline
+                y1 = max(0, int(round(expected_baseline_y - 64)))
+                y2 = min(h, y1 + 128)
+                win = chunk_slice[y1:y2, :]
+                if win.shape[0] < 128:
+                    win = cv2.copyMakeBorder(win, 0, 128 - win.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+                win_resized = cv2.resize(win, (256, 128))
+
+                tensor = torch.from_numpy(win_resized).permute(2, 0, 1).float().unsqueeze(0) / 255.0
+                with torch.no_grad():
+                    out = self.model(tensor.to(self.device), baseline_y=64.0)
+
+                py128 = out.pixel_coordinates.squeeze(0).cpu().numpy()
+                conf = out.column_confidence.squeeze(0).cpu().numpy()
+                py_orig = y1 + py128 * ((y2 - y1) / 128.0)
+
+                # Resample to chunk's pixel width
+                resamp_py = np.interp(np.linspace(0, 255, cur_w), np.arange(256), py_orig)
+                chunk_trajs.append(resamp_py)
+                chunk_confs.append(float(np.mean(conf)))
+
+            traj = np.concatenate(chunk_trajs).astype(np.float32)
+            mean_conf = float(np.mean(chunk_confs))
+        else:
+            # Standard grid lead (2.5s)
+            active_slice = lead_crop[:, col_min : col_max + 1]
+            y1 = max(0, int(round(expected_baseline_y - 64)))
+            y2 = min(h, y1 + 128)
+            win = active_slice[y1:y2, :]
+            if win.shape[0] < 128:
+                win = cv2.copyMakeBorder(win, 0, 128 - win.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+            win_resized = cv2.resize(win, (256, 128))
+
+            tensor = torch.from_numpy(win_resized).permute(2, 0, 1).float().unsqueeze(0) / 255.0
+            with torch.no_grad():
+                out = self.model(tensor.to(self.device), baseline_y=64.0)
+
+            py128 = out.pixel_coordinates.squeeze(0).cpu().numpy()
+            conf = out.column_confidence.squeeze(0).cpu().numpy()
+            py_orig = y1 + py128 * ((y2 - y1) / 128.0)
+
+            traj = np.interp(np.linspace(0, 255, active_w), np.arange(256), py_orig).astype(np.float32)
+            mean_conf = float(np.mean(conf))
+
+        rel_traj = (expected_baseline_y - traj).astype(np.float32)
+        comp_ratio = float(np.mean(binary_crop.sum(axis=0)[col_min : col_max + 1] > 0)) if binary_crop.size > 0 else 1.0
+
+        return ExtractedTrace(
+            lead_name=lead_name,
+            pixel_trajectory=traj,
+            baseline_y=float(expected_baseline_y),
+            relative_trajectory=rel_traj,
+            completeness_ratio=comp_ratio,
+            active_start_col=col_min,
+            active_end_col=col_max,
+            crop_width_px=w,
+            crop_height_px=h,
+            is_trained_lead=is_trained,
+            validation_status=validation_status,
+            confidence=mean_conf,
+            extraction_method="deep_unet",
         )

@@ -154,3 +154,65 @@
 - Artifacts exported to `data/real_ecg_eval/`.
 - Test suite: **104/104 passed**.
 - Ready for full 12-lead multi-lead integration milestone.
+
+---
+
+## Session 5 Verified Milestones: End-to-End 12-Lead ECG Sheet Digitization (Completed)
+- [x] **12-Lead Sheet Pipeline Architecture** (`src/ecg_digitization/pipeline/digitizer.py`):
+  - Integrates computer vision preprocessing, layout detection, deep U-Net waveform extraction, calibration handling, and synchronized multi-lead reconstruction.
+  - Supports standard clinical layouts: `3x4_1` (12 grid leads across 4 columns x 3 rows + full-width bottom rhythm strip) and `12x1` (12 continuous rows).
+  - Selectable extractor modes: `deep` (PyTorch U-Net with Soft-Argmax), `classical` (column-wise centroid/median tracking), and `hybrid` (deep for trained leads, classical for experimental).
+- [x] **1:1 Physical Baseline Scaling & Windowing** (`src/ecg_digitization/inference/deep_digitizer.py`):
+  - Addressed scale compression: Preserved exact $59.055\text{ px/mV}$ physical scaling by centering a 128px vertical window around each lead's estimated isoelectric baseline.
+  - Eliminated margin shift: Used binary trace mask to isolate active waveform columns $[col_{\text{min}}, col_{\text{max}}]$ before passing to U-Net.
+  - Rhythm strip temporal chunking: Divided the 10-second full-width rhythm strip into 4 contiguous 2.5-second sub-windows, processed each with U-Net, and concatenated trajectories seamlessly ($r = 0.9597$, $\text{RMSE} = 0.0248\text{ mV}$ across all 10 seconds).
+- [x] **Rigorous Lead Provenance & Generalization Discipline**:
+  - Explicitly avoided assuming uniform generalization across all 12 leads.
+  - Categorized leads into:
+    - **Formally Validated (Trained Distribution)**: Lead II, V1, and II_RHYTHM (`is_trained_lead=True`, `validation_status="validated_lead"`).
+    - **Experimental (Zero-Shot Transfer)**: Leads I, III, aVR, aVL, aVF, V2, V3, V4, V5, V6 (`is_trained_lead=False`, `validation_status="experimental_unvalidated"`).
+  - Tagged provenance in all data structures, exported CSVs, and API responses.
+- [x] **Calibration Preservation vs Nominal Voltage Handling** (`src/ecg_digitization/reconstruction/calibrator.py`):
+  - When millimeter grids / DPI / calibration pulses are present, voltages are physically calibrated in true $\text{mV}$ (`is_calibration_reliable=True`).
+  - When uncalibrated or scans without reference pulse, voltages are explicitly tagged as nominal estimates (`is_calibration_reliable=False`).
+- [x] **Unified Multi-Lead CSV Export**:
+  - Synchronized tabular DataFrame and CSV schema: `time_s`, `I`, `II`, `III`, `AVR`, `AVL`, `AVF`, `V1`, `V2`, `V3`, `V4`, `V5`, `V6`, `II_RHYTHM`.
+  - Embedded metadata comment header documenting provenance, sampling rate (100 Hz), paper speed (25 mm/s), gain (10 mm/mV), and calibration reliability.
+- [x] **12-Lead Diagnostic Sheet Overlay Generation**:
+  - Method `generate_sheet_overlay(output_path)`: Renders full image with color-coded lead bounding boxes (Green for Validated, Orange for Experimental, Cyan for Rhythm) and overlays reconstructed waveform trajectories in crimson red directly on the image canvas.
+  - Adds a top diagnostic provenance banner.
+- [x] **FastAPI Service & Web UI Demonstration** (`src/ecg_digitization/service/app.py`):
+  - Updated `/api/digitize` to support `extractor_mode`, return `sheet_overlay_b64`, per-lead validation status, and calibration metadata.
+  - Added dedicated endpoint `@app.get("/api/export/csv/{record_id}")` for one-click downloading of unified multi-lead CSVs.
+  - Interactive Web Dashboard updated with Waveform Extractor selector, full-sheet diagnostic overlay display, and Lead Digitisation Scope & Validation Status breakdown table.
+- [x] **Comprehensive Test Suite**:
+  - Created `tests/unit/test_end_to_end_sheet.py` covering layout detection, deep digitizer routing, rhythm chunking, lead provenance tagging, calibration handling, CSV export, and FastAPI service integration.
+  - **Full test suite passes: 111 passed tests**, 0 failures, **87% code coverage**.
+
+---
+
+## Session 6: Final Integration, Quality Assurance & Emergency Delivery (10 Nov 2026)
+- [x] **Frontend Polish & Direct User Image Upload** (`src/ecg_digitization/service/app.py`):
+  - Added direct file input and drag-and-drop zone in Tab 3 (ECG Digitisation) supporting PNG/JPG images.
+  - Implemented client-side and server-side validation: verifies file type, decodes image, and strictly rejects images smaller than 50x50 px or blank/empty images with clear diagnostic alerts.
+  - Added Real ECG Sample Selector dropdown auto-populated with 6 curated patient beat classes (`N10007.png [Normal]`, `V1001.png [PVC]`, `F0.png [Fusion]`, `M0.png [MI]`, `S100.png [SVPC]`, `Q1.png [Paced]`).
+  - Added live image preview displaying natural dimensions, byte size, and auto-inferred layout mode.
+- [x] **Unified Multi-Layout Routing in Digitization Pipeline**:
+  - Expanded `LeadLayoutDetector` to support `"single_lead"` alongside `"3x4_1"`, `"3x4"`, and `"12x1"`.
+  - Single-lead beat crops seamlessly route through `DeepCropDigitizer` for Lead II, generating full diagnostic overlays and reconstructed CSVs.
+- [x] **End-to-End Workflow Flow & Decision-Support Integration**:
+  - Seamless navigation from Tab 3 (Digitisation) -> Tab 4 (Reconstructed Waveforms & CSV Export) -> Tab 5 (Physiological Rhythm & Multi-Label Screening) -> Tab 6 (Printable Decision-Support Report).
+  - Maintained academic discipline: zero fabricated predictions, unassessed clinical risk stratification, and clear distinction between validated leads (II, V1, Rhythm) and experimental zero-shot leads.
+- [x] **Complete Quality Assurance & Test Verification**:
+  - Expanded `tests/unit/test_service.py` to cover sample retrieval, base64 image upload, undersized image rejection, and blank image rejection.
+  - **114 passed unit and integration tests** (100% pass rate, **87% overall codebase coverage**).
+  - Checkpoint integrity verified: `models/ecg_digitizer_unet.pt` (8,121,015 bytes, backup in `models/ecg_digitizer_unet.pt.bak`).
+
+---
+
+## Current Status: PROJECT FULLY DELIVERED & ACADEMICALLY READY
+- **Complete Application Operational**: FastAPI backend + interactive single-page web UI.
+- **Trained Deep Learning Model Operational**: 2D ResNet-U-Net (`models/ecg_digitizer_unet.pt`) achieving best val Pearson $r = 0.9971$, RMSE $= 0.0179\text{ mV}$.
+- **Comprehensive Validation Provenance**: Real Kaggle beat evaluation across 6 pathology classes + synthetic 12-lead PTB-XL end-to-end benchmark ($r \ge 0.9597$).
+- **Test Suite**: 114 passed tests, 0 failures, 87% coverage.
+- **Academic Readiness**: Aligned with JIIT ECE Major Project Synopsis and Mid-Viva Presentation specifications.

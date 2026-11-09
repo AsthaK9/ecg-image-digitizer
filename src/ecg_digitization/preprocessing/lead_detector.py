@@ -57,7 +57,7 @@ class LeadDetectionResult:
 class LeadLayoutDetector:
     """Detects lead regions for standard clinical ECG sheet layouts."""
 
-    SUPPORTED_LAYOUTS = ("3x4_1", "3x4", "12x1")
+    SUPPORTED_LAYOUTS = ("3x4_1", "3x4", "12x1", "single_lead")
 
     # Standard 3x4 lead ordering:
     # Col 0: I, II, III
@@ -170,6 +170,19 @@ class LeadLayoutDetector:
                     col=0,
                     is_rhythm=False,
                 )
+
+        elif layout_hint == "single_lead":
+            # Single lead or beat crop: entire crop treated as Lead II
+            leads["II"] = LeadRegion(
+                lead_name="II",
+                x1=margin_x,
+                y1=margin_y,
+                x2=max(margin_x + 1, w - margin_x),
+                y2=max(margin_y + 1, h - margin_y),
+                row=0,
+                col=0,
+                is_rhythm=False,
+            )
 
         return LeadDetectionResult(
             layout_name=layout_hint,

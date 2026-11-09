@@ -33,13 +33,16 @@ def run_real_ecg_validation():
     for d in [samples_dir, csv_dir, overlays_dir]:
         d.mkdir(parents=True, exist_ok=True)
 
-    # 2. Select 4 diverse real ECG images from the archive
-    # Pick Normal (N), Premature Ventricular Contraction (V), Fusion beat (F), and Myocardial Infarction (M)
+    # 2. Select 6 diverse real ECG images from the archive
+    # Pick Normal (N), Premature Ventricular Contraction (V), Fusion beat (F),
+    # Myocardial Infarction (M), Supraventricular Premature (S), and Paced/Unknown (Q)
     selected_targets = [
         ("N10007.png", "ECG_Image_data/test/N/N10007.png", "Normal Sinus Rhythm (N)"),
         ("V1001.png", "ECG_Image_data/test/V/V1001.png", "Premature Ventricular Contraction (V)"),
         ("F0.png", "ECG_Image_data/test/F/F0.png", "Fusion Beat (F)"),
         ("M0.png", "ECG_Image_data/test/M/M0.png", "Myocardial Infarction / Abnormal Beat (M)"),
+        ("S100.png", "ECG_Image_data/test/S/S100.png", "Supraventricular Premature Beat (S)"),
+        ("Q1.png", "ECG_Image_data/test/Q/Q1.png", "Paced / Unclassifiable Beat (Q)"),
     ]
 
     extracted_samples = []

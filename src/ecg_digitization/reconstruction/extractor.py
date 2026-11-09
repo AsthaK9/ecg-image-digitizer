@@ -29,6 +29,10 @@ class ExtractedTrace:
     active_end_col: int               # Last column with trace pixels
     crop_width_px: int
     crop_height_px: int
+    is_trained_lead: bool = False
+    validation_status: str = "unvalidated"
+    confidence: float = 1.0
+    extraction_method: str = "classical"
 
 
 class WaveformExtractor:
@@ -98,6 +102,7 @@ class WaveformExtractor:
         # Positive voltage (R peak) goes upwards -> relative trajectory = baseline - y
         relative_y = baseline - interpolated_y
 
+        is_trained = lead_name in ("II", "V1", "II_RHYTHM")
         return ExtractedTrace(
             lead_name=lead_name,
             pixel_trajectory=interpolated_y,
@@ -108,4 +113,8 @@ class WaveformExtractor:
             active_end_col=col_max,
             crop_width_px=w,
             crop_height_px=h,
+            is_trained_lead=is_trained,
+            validation_status="validated_lead" if is_trained else "experimental_unvalidated",
+            confidence=completeness,
+            extraction_method=f"classical_{self.method}",
         )

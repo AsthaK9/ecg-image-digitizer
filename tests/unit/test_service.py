@@ -10,14 +10,19 @@ from ecg_digitization.service.app import (
     SyntheticRequest,
     analyze_ecg,
     digitize_image,
+    encode_img_b64,
     generate_synthetic,
     get_kaggle_status,
     get_report_html,
     get_report_json,
+    get_sample_image,
     get_status,
     list_samples,
     serve_index,
 )
+import cv2
+import numpy as np
+from fastapi import HTTPException
 
 
 def test_get_status_handler() -> None:
@@ -87,3 +92,58 @@ def test_serve_index_handler() -> None:
     resp = serve_index()
     assert resp.status_code == 200
     assert "ECG DigiAI Platform" in resp.body.decode("utf-8")
+
+
+def test_get_sample_image_handler() -> None:
+    # Test valid sample image from real_ecg_eval/samples
+    data = get_sample_image("N10007.png")
+    assert data["filename"] == "N10007.png"
+    assert "image_b64" in data
+    assert len(data["image_b64"]) > 100
+    assert data["width"] > 50
+    assert data["height"] > 50
+    assert data["suggested_layout"] == "single_lead"
+
+    # Test non-existent image
+    with pytest.raises(HTTPException) as exc:
+        get_sample_image("non_existent_file_xyz.png")
+    assert exc.value.status_code == 404
+
+
+def test_digitize_uploaded_image_base64_handler() -> None:
+    # Create valid synthetic ECG-like crop (100x100)
+    img = np.full((128, 256, 3), 255, dtype=np.uint8)
+    cv2.line(img, (0, 64), (256, 64), (0, 0, 0), 2)  # trace
+    b64 = encode_img_b64(img)
+
+    req = DigitizeRequest(
+        record_id="uploaded_test_lead",
+        image_base64=b64,
+        layout_hint="single_lead",
+        extractor_mode="classical",
+    )
+    res = digitize_image(req)
+    assert res["success"] is True
+    assert "leads" in res
+    assert "II" in res["leads"]
+    assert res["leads"]["II"]["is_trained_lead"] is True
+
+
+def test_digitize_rejects_undersized_or_blank_image() -> None:
+    # Undersized image (30x30 < 50x50)
+    small_img = np.full((30, 30, 3), 255, dtype=np.uint8)
+    small_b64 = encode_img_b64(small_img)
+    req_small = DigitizeRequest(image_base64=small_b64)
+    with pytest.raises(HTTPException) as exc1:
+        digitize_image(req_small)
+    assert exc1.value.status_code == 400
+    assert "dimensions too small" in exc1.value.detail
+
+    # Blank image (all white 100x100)
+    blank_img = np.full((100, 100, 3), 255, dtype=np.uint8)
+    blank_b64 = encode_img_b64(blank_img)
+    req_blank = DigitizeRequest(image_base64=blank_b64)
+    with pytest.raises(HTTPException) as exc2:
+        digitize_image(req_blank)
+    assert exc2.value.status_code == 400
+    assert "blank or empty" in exc2.value.detail

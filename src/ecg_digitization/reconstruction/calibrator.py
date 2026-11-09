@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -49,6 +51,11 @@ class ReconstructedLead:
     sampling_rate_hz: float
     duration_seconds: float
     completeness: float
+    is_trained_lead: bool = False
+    validation_status: str = "unvalidated"
+    confidence: float = 1.0
+    is_calibration_reliable: bool = True
+    calibration_note: str = ""
 
 
 @dataclass
@@ -59,14 +66,30 @@ class ReconstructedECG:
     sampling_rate_hz: float
     layout_name: str
     calibration: CalibrationConfig
+    is_calibration_reliable: bool = True
+    calibration_note: str = ""
+
+    # Standard clinical lead sequence
+    STANDARD_LEAD_ORDER = [
+        "I", "II", "III",
+        "AVR", "AVL", "AVF",
+        "V1", "V2", "V3",
+        "V4", "V5", "V6",
+        "II_RHYTHM",
+    ]
 
     def to_dataframe(self) -> pd.DataFrame:
-        """Converts synchronized leads into a pandas DataFrame."""
-        max_len = max(len(lead.voltage_mv) for lead in self.leads.values())
-        time_axis = np.arange(max_len) / self.sampling_rate_hz
+        """Converts synchronized leads into a pandas DataFrame in standard clinical ordering."""
+        max_len = max(len(lead.voltage_mv) for lead in self.leads.values()) if self.leads else 0
+        time_axis = np.arange(max_len) / self.sampling_rate_hz if max_len > 0 else np.array([])
 
         data: Dict[str, np.ndarray] = {"time_s": time_axis}
-        for name, lead in self.leads.items():
+        ordered_keys = [k for k in self.STANDARD_LEAD_ORDER if k in self.leads] + [
+            k for k in self.leads if k not in self.STANDARD_LEAD_ORDER
+        ]
+
+        for name in ordered_keys:
+            lead = self.leads[name]
             if len(lead.voltage_mv) == max_len:
                 data[name] = lead.voltage_mv
             else:
@@ -77,11 +100,27 @@ class ReconstructedECG:
         return pd.DataFrame(data)
 
     def save_csv(self, output_path: Union[str, Path]) -> Path:
-        """Exports digital ECG waveforms to a CSV file."""
+        """Exports digital ECG waveforms to a unified CSV file with provenance metadata."""
         df = self.to_dataframe()
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(out, index=False, float_format="%.4f")
+
+        validated_leads = [k for k, l in self.leads.items() if l.is_trained_lead]
+        experimental_leads = [k for k, l in self.leads.items() if not l.is_trained_lead]
+
+        header_lines = [
+            "# ECG DigiAI — Unified Reconstructed ECG Waveform Record\n",
+            f"# Layout: {self.layout_name} | Sampling Rate: {self.sampling_rate_hz:.1f} Hz | Calibration Reliable: {self.is_calibration_reliable}\n",
+            f"# Validated Leads (Trained Distribution): {', '.join(validated_leads) if validated_leads else 'None'}\n",
+            f"# Experimental Leads (Zero-Shot Receptive Field): {', '.join(experimental_leads) if experimental_leads else 'None'}\n",
+            f"# Calibration Note: {self.calibration_note or 'Standard paper calibration (25 mm/s, 10 mm/mV)'}\n",
+        ]
+
+        with open(out, "w", newline="", encoding="utf-8") as f:
+            f.writelines(header_lines)
+            df.to_csv(f, index=False, float_format="%.4f")
+
+        logger.info("Saved unified multi-lead CSV: %s", out)
         return out
 
     def save_plot(self, output_path: Union[str, Path], title: str = "Reconstructed 12-Lead ECG") -> Path:
@@ -89,22 +128,30 @@ class ReconstructedECG:
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
 
-        lead_keys = [k for k in self.leads.keys() if k != "II_RHYTHM"]
-        num_leads = len(lead_keys)
+        ordered_keys = [k for k in self.STANDARD_LEAD_ORDER if k in self.leads] + [
+            k for k in self.leads if k not in self.STANDARD_LEAD_ORDER
+        ]
+        num_leads = len(ordered_keys)
 
-        fig, axes = plt.subplots(num_leads, 1, figsize=(10, 1.2 * max(num_leads, 1)), sharex=True)
+        fig, axes = plt.subplots(num_leads, 1, figsize=(11, 1.3 * max(num_leads, 1)), sharex=False)
         if num_leads == 1:
             axes = [axes]
 
-        for ax, name in zip(axes, lead_keys):
+        cal_status_str = "Physical Calibrated (mV)" if self.is_calibration_reliable else "Nominal Voltage (mV equiv)"
+
+        for ax, name in zip(axes, ordered_keys):
             lead = self.leads[name]
-            ax.plot(lead.time_seconds, lead.voltage_mv, color="#1f77b4", linewidth=1.0)
-            ax.set_ylabel(f"{name}\n(mV)", fontsize=8)
-            ax.grid(True, linestyle=":", alpha=0.6)
+            trace_color = "#137333" if lead.is_trained_lead else "#1a73e8"
+            ax.plot(lead.time_seconds, lead.voltage_mv, color=trace_color, linewidth=1.1)
+
+            tag = "[Validated]" if lead.is_trained_lead else "[Experimental]"
+            ax.set_ylabel(f"{name}\n{tag}", fontsize=7, color="#202124")
+            ax.grid(True, linestyle=":", alpha=0.5)
             ax.set_ylim(-1.5, 2.0)
 
-        axes[-1].set_xlabel("Time (seconds)", fontsize=9)
-        fig.suptitle(title, fontsize=11, y=0.99)
+        axes[-1].set_xlabel(f"Time (seconds) — {cal_status_str}", fontsize=9)
+        full_title = f"{title}\nGreen: Formally Validated Leads (II, V1) | Blue: Experimental Leads | Status: {cal_status_str}"
+        fig.suptitle(full_title, fontsize=10, y=0.995)
         plt.tight_layout()
         fig.savefig(str(out), dpi=150, bbox_inches="tight")
         plt.close(fig)
@@ -144,12 +191,18 @@ class SignalReconstructor:
             sampling_rate_hz=self.cal.target_fs_hz,
             duration_seconds=duration_s,
             completeness=trace.completeness_ratio,
+            is_trained_lead=trace.is_trained_lead,
+            validation_status=trace.validation_status,
+            confidence=trace.confidence,
+            is_calibration_reliable=getattr(self.cal, "is_reliable", True),
         )
 
     def reconstruct_ecg(
         self,
         extracted_traces: Dict[str, ExtractedTrace],
         layout_name: str = "3x4_1",
+        is_calibration_reliable: bool = True,
+        calibration_note: str = "",
     ) -> ReconstructedECG:
         """Reconstructs all leads in an ECG record into synchronized physical units."""
         leads: Dict[str, ReconstructedLead] = {}
@@ -162,6 +215,8 @@ class SignalReconstructor:
                 duration = None
 
             lead = self.reconstruct_lead(trace, lead_duration_s=duration)
+            lead.is_calibration_reliable = is_calibration_reliable
+            lead.calibration_note = calibration_note
             leads[name] = lead
 
         return ReconstructedECG(
@@ -169,4 +224,6 @@ class SignalReconstructor:
             sampling_rate_hz=self.cal.target_fs_hz,
             layout_name=layout_name,
             calibration=self.cal,
+            is_calibration_reliable=is_calibration_reliable,
+            calibration_note=calibration_note,
         )
