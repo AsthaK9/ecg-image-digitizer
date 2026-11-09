@@ -69,9 +69,11 @@ class SyntheticECGResult:
     lead_baselines: Dict[str, int]      # name -> y_pixel coordinate of 0 mV baseline
     calibration: Dict[str, Any]         # Calibration scales: pixels_per_sec, pixels_per_mv, etc.
     source_signal: np.ndarray           # (num_leads, signal_length)
+    exact_lead_signals: Dict[str, np.ndarray]  # Segmented ground-truth signal per lead window
     lead_names: List[str]
     sampling_rate_hz: float
     seed: int
+    source_record_id: str = "synthetic_sample"
 
 
 class SyntheticECGGenerator:
@@ -113,10 +115,12 @@ class SyntheticECGGenerator:
         """Generate a synthetic ECG paper sheet from 12-lead digital signals."""
         rng = np.random.RandomState(seed)
 
+        source_rec_id = "synthetic_sample"
         if isinstance(signal, ECGSignal):
             values = signal.values
             fs = signal.metadata.sampling_rate_hz
             names = [l.upper() for l in signal.metadata.lead_names]
+            source_rec_id = signal.metadata.record_id
         else:
             values = np.asarray(signal, dtype=np.float32)
             fs = sampling_rate_hz
@@ -144,6 +148,7 @@ class SyntheticECGGenerator:
 
         lead_bboxes: Dict[str, Tuple[int, int, int, int]] = {}
         lead_baselines: Dict[str, int] = {}
+        exact_lead_signals: Dict[str, np.ndarray] = {}
 
         # Optional: Draw 1 mV calibration pulse at start of each row
         pulse_width_px = int(round(5.0 * self.pixels_per_mm))  # 5 mm = 0.2s
@@ -185,6 +190,7 @@ class SyntheticECGGenerator:
                 sig_seg = values[lead_idx_map[lead_name], idx_start:idx_end]
                 if len(sig_seg) == 0:
                     continue
+                exact_lead_signals[lead_name] = sig_seg
 
                 # Waveform pixel coordinates
                 num_points = len(sig_seg)
@@ -241,6 +247,7 @@ class SyntheticECGGenerator:
 
         if rhythm_lead in lead_idx_map:
             rhythm_sig = values[lead_idx_map[rhythm_lead], : int(round(10.0 * fs))]
+            exact_lead_signals["II_RHYTHM"] = rhythm_sig
             num_points = len(rhythm_sig)
             rhythm_width_px = (num_points / fs) * self.pixels_per_sec
 
@@ -296,9 +303,11 @@ class SyntheticECGGenerator:
             lead_baselines=lead_baselines,
             calibration=calibration_info,
             source_signal=values,
+            exact_lead_signals=exact_lead_signals,
             lead_names=names,
             sampling_rate_hz=fs,
             seed=seed,
+            source_record_id=source_rec_id,
         )
 
     def _create_grid_paper(self, width_px: int, height_px: int) -> np.ndarray:

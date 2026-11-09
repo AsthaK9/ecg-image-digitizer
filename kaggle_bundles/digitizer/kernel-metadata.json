@@ -1,0 +1,15 @@
+{
+  "id": "asthak11111/ecg-digiai-unet-digitizer",
+  "title": "ECG DigiAI \u2014 U-Net Image Digitizer Training",
+  "code_file": "train_digitizer_kaggle.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "dataset_sources": [
+    "khyeh0719/ptb-xl-dataset"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

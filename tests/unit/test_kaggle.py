@@ -49,3 +49,37 @@ def test_kaggle_manager_prepare_kernel_dry_run() -> None:
         assert script_file.is_file()
         content = script_file.read_text(encoding="utf-8")
         assert "ECGResNet1D" in content
+
+
+def test_kaggle_manager_prepare_digitizer_kernel() -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        manager = KaggleManager(workspace_dir=tmp_dir)
+        card = manager.prepare_digitizer_kernel(
+            output_dir=tmp_dir,
+            kernel_slug="test-ecg-digitizer",
+            title="Test ECG Digitizer UNet",
+            enable_gpu=True,
+            epochs=3,
+            batch_size=8,
+        )
+
+        assert card.kernel_slug == "test-ecg-digitizer"
+        assert card.enable_gpu is True
+        assert card.output_checkpoint_name == "ecg_digitizer_unet.pt"
+        assert "kaggle kernels push" in card.dry_run_command
+
+        # Verify kernel-metadata.json
+        meta_file = Path(tmp_dir) / "kernel-metadata.json"
+        assert meta_file.is_file()
+        with open(meta_file, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        assert meta["code_file"] == "train_digitizer_kaggle.py"
+        assert meta["enable_gpu"] == "true"
+
+        # Verify train_digitizer_kaggle.py script
+        script_file = Path(tmp_dir) / "train_digitizer_kaggle.py"
+        assert script_file.is_file()
+        content = script_file.read_text(encoding="utf-8")
+        assert "ECGDigitizerUNet" in content
+        assert "CompositeReconstructionLoss" in content
+

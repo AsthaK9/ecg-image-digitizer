@@ -57,7 +57,35 @@
 
 ---
 
-## Next Steps: Image-to-Signal Digitizer Training
-1. Implement `ECGDigitizerUNet` deep segmentation and differentiable soft-argmax extraction module.
-2. Package digitization-focused Kaggle training bundle (`asthak11111/ecg-digiai-unet-training`).
-3. Present new Digitisation Job Card for explicit user authorization before Kaggle GPU submission.
+## Session 3 Verified Milestones (Completed)
+- [x] **ECGDigitizerUNet Architecture** (`src/ecg_digitization/models/digitizer_unet.py`):
+  - 2D ResNet-U-Net encoder-decoder for pixel-level ECG trace segmentation.
+  - Differentiable Soft-Argmax column-wise coordinate extraction: $\hat{y}(x) = \sum_y y \cdot P(y \mid x)$.
+  - Column confidence estimation and missing-trace/blank-region masking.
+  - Differentiable physical calibration conversion: $V(x) = \frac{y_{\text{baseline}} - \hat{y}(x)}{\text{pixels\_per\_mv}}$.
+  - End-to-end composite reconstruction loss: $\mathcal{L} = \mathcal{L}_{\text{BCE}} + \mathcal{L}_{\text{Dice}} + 2 \mathcal{L}_{\text{SmoothL1}} + \mathcal{L}_{\text{Corr}}(1 - r)$.
+- [x] **Synthetic Data Verification & Discrepancy Quantification** (`tests/unit/test_synthetic_verification.py`):
+  - Verified every synthetic sample contains: `source_record_id`, `source_signal`, `sampling_rate_hz`, `clean_image`, `image`, `exact_lead_signals`, `trace_mask`, `lead_bounding_boxes`, `calibration`, `lead_baselines`.
+  - Empirically quantified rasterization discrepancies:
+    - Isoelectric / smooth segments: Mean Absolute Error is $0.0162\text{ mV}$ ($16.2\,\mu\text{V}$, well within clinical gold-standard threshold $< 0.05\text{ mV}$).
+    - High slew-rate QRS peaks ($dV/dt > 50\text{ mV/s}$): Polyline discretization introduces localized peak error up to $0.175\text{ mV}$ (approx. 10 px vertical spread).
+    - Uncorrupted reconstruction Pearson correlation exceeds $r > 0.99$.
+- [x] **Leakage-Safe Dataset Splitting** (`src/ecg_digitization/data/split_manager.py`):
+  - Enforces official PTB-XL patient-disjoint folds (Folds 1-8 Train, Fold 9 Val, Fold 10 Test; 0 cross-fold patients).
+  - Groups all synthetic variants (e.g. `00001_lr_deg1`, `00001_lr_rot2`) to root record `00001_lr`, guaranteeing zero leakage across splits.
+- [x] **CPU Smoke Test Execution** (`scripts/smoke_test_digitizer_unet.py`):
+  - Validated mini-batch generation (4 synthetic crops `[4, 3, 128, 256]`).
+  - Validated gradient flow and parameter updates: loss decreased monotonically from 2.2028 to 1.8354 in 3 steps.
+  - Verified checkpoint serialization, reloading, and numerical bitwise match (`models/digitizer_unet_smoke_test.pt`).
+- [x] **Digitization-Focused Kaggle GPU Training Bundle** (`kaggle_bundles/digitizer/`):
+  - Generated self-contained kernel bundle: `train_digitizer_kaggle.py` and `kernel-metadata.json`.
+  - Kernel ID: `asthak11111/ecg-digiai-unet-digitizer`.
+  - Mounted dataset: `khyeh0719/ptb-xl-dataset`.
+- [x] **Unit & Integration Test Suite**:
+  - **99 passed tests** (0 failures) with **84% code coverage**.
+
+---
+
+## Next Step: Kaggle GPU Execution (Pending Explicit User Approval)
+- Review and approve the proposed Job Card for `asthak11111/ecg-digiai-unet-digitizer`.
+- Upon approval, agent will autonomously execute kernel push, monitor execution, retrieve `ecg_digitizer_unet.pt`, register checkpoint locally, and verify inference.

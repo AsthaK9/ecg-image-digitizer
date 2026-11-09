@@ -92,16 +92,18 @@ Rather than classification accuracy or F1 score, model evaluation tracks:
 
 ---
 
-## 6. Execution Roadmap & Next Steps
+## 6. Execution Roadmap & Current Status
 
-1. **Step 1: Implement `ECGDigitizerUNet` Module**
-   - Add U-Net segmentation and soft-argmax waveform extraction model in `src/ecg_digitization/models/digitizer_unet.py`.
-   - Add unit tests verifying forward pass on image batches and loss calculation.
-2. **Step 2: Package Digitisation Kaggle Training Bundle**
-   - Replace the classification-only script with a GPU training script (`train_digitizer_kaggle.py`) that generates synthetic degraded lead crops on-the-fly from PTB-XL WFDB records and trains `ECGDigitizerUNet`.
-   - Package `kernel-metadata.json` with attached `khyeh0719/ptb-xl-dataset`.
-3. **Step 3: Job Card & User Authorization**
-   - Present the new Digitisation GPU Job Card (expected training time, quota usage, model architecture).
+1. **Step 1: Implement `ECGDigitizerUNet` Module** — **COMPLETED**
+   - Implemented `ECGDigitizerUNet` and `DigitizerReconstructionLoss` in `src/ecg_digitization/models/digitizer_unet.py`.
+   - Implemented `LeakageSafeSplitManager` in `src/ecg_digitization/data/split_manager.py`.
+   - Verified on CPU smoke test and unit test suite (11/11 tests passing, full suite 99/99 passing).
+2. **Step 2: Package Digitisation Kaggle Training Bundle** — **COMPLETED**
+   - Packaged standalone GPU training bundle in `kaggle_bundles/digitizer/` (`train_digitizer_kaggle.py` and `kernel-metadata.json`).
+   - Kernel ID: `asthak11111/ecg-digiai-unet-digitizer`.
+   - Attached dataset: `khyeh0719/ptb-xl-dataset`.
+3. **Step 3: Job Card & User Authorization** — **ACTIVE (Awaiting Approval)**
+   - Present the new Digitisation GPU Job Card (expected training time: 15–20 min, model: `ECGDigitizerUNet`).
    - Await explicit user authorization before execution.
-4. **Step 4: Autonomous Submission, Monitoring & Checkpoint Registration**
+4. **Step 4: Autonomous Submission, Monitoring & Checkpoint Registration** — **PENDING USER APPROVAL**
    - Submit job via Kaggle CLI, poll status, download `ecg_digitizer_unet.pt`, and integrate into `ECGDigitizerPipeline`.

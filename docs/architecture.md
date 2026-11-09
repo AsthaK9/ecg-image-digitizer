@@ -84,3 +84,19 @@ flowchart TD
    - If trained weights are not loaded: returns `model_not_trained` (no fake predictions).
    - If target has sparse direct labels (e.g. `STE_`): returns `Not supported by available labels`.
    - Clinical risk level is strictly reported as `Not assessed`.
+
+### E. Deep Learning Digitisation Subsystem (`ecg_digitization.models.digitizer_unet`)
+1. **Architecture (`ECGDigitizerUNet`)**:
+   - 2D ResNet-U-Net encoder-decoder featuring residual convolutional blocks (`ConvBlock2D`) with skip connections.
+   - Trace Segmentation Head: $1\times 1$ conv generating pixel-level trace logits and probabilities $\hat{M} \in [0, 1]^{H \times W}$.
+   - Differentiable Soft-Argmax Waveform Extraction:
+     $$\hat{y}(x) = \sum_{y=0}^{H-1} y \cdot \text{softmax}_y\left(\frac{\text{logits}(y, x)}{\tau}\right)$$
+   - Physical Calibration & Baseline Mapping:
+     $$\hat{V}(x) = \frac{y_{\text{base}} - \hat{y}(x)}{\text{pixels\_per\_mv}}$$
+   - Column Confidence & Missing Trace Handling: Computes column-wise maximum probability $\max_y \hat{M}(y, x)$ to mask occluded/missing traces.
+2. **Multi-Task Composite Loss (`DigitizerReconstructionLoss`)**:
+   $$\mathcal{L} = \mathcal{L}_{\text{BCE}} + \mathcal{L}_{\text{Dice}} + 2 \cdot \mathcal{L}_{\text{SmoothL1}}(\hat{V}, V) + 1.0 \cdot (1 - r(\hat{V}, V))$$
+3. **Leakage-Safe Dataset Splitting (`ecg_digitization.data.split_manager`)**:
+   - Enforces official PTB-XL patient-disjoint folds (Folds 1-8 Train, 9 Val, 10 Test).
+   - Parent record identifier extraction preserves patient integrity across all synthetic augmentations and crops.
+
