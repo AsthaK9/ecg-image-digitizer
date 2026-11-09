@@ -8,96 +8,48 @@
 
 ---
 
-## Session 1 Summary & Verified Work
-
-### 1. Environment & Configuration Audit (Hydra Issue Resolution)
-- **Root Cause**: `.gitignore` contained a greedy `env/` pattern which silently untracked `configs/env/`, causing `hydra.errors.MissingConfigException: Could not find 'env/local'`.
-- **Solution**:
-  - Created tracked default configuration `configs/env/default.yaml` using dynamic environment variable fallbacks (`${oc.env:ECG_DATA_ROOT,./data}`, `${oc.env:ECG_ARTIFACTS_ROOT,./artifacts}`, `${oc.env:ECG_DEVICE,cpu}`).
-  - Updated `configs/config.yaml` to include `- env: default` with optional `- optional env@_here_: local`.
-  - Corrected `.gitignore` to only ignore root `/env/` while explicitly allowing `!configs/env/`.
-- **Baseline Verification**: Test suite passed with 67/67 tests.
-
-### 2. Dataset Inspection & Ground Truth Discipline
-- **PTB-XL (v1.0.1)**: Inspected `ptbxl_database.csv` (21,837 records, 10 stratified folds) and `scp_statements.csv` (71 statement codes).
-  - Positive label audit:
-    - Atrial Fibrillation (`AFIB`): 1,514 positives (Direct label)
-    - Bradycardia (`SBRAD`): 637 positives (Direct label + rule-based validation)
-    - Tachycardia (`STACH`, `SVTAC`, `PSVT`): 877 positives (Direct label + rule-based validation)
-    - ST Elevation (`STE_`): 28 direct positives (Sparse direct label; proxy via acute injury codes: 413)
-    - ST Depression (`STD_`): 1,009 positives (Direct label)
-    - Bundle Branch Block (`CRBBB`, `IRBBB`, `CLBBB`, `ILBBB`): 2,273 positives (Direct labels)
-    - Myocardial Infarction (`MI` class, `IMI`, `ASMI`, etc.): 5,486 positives (Direct labels)
-- **Kaggle `ecg-image-data`**: 123,998 images (single-beat plots, AAMI classes F, M, N, Q, S, V). Determined to be **unpaired** with PTB-XL signals. Reserved strictly for qualitative preprocessing robustness.
-- **Documentation**: Generated `docs/dataset_pairing.md` and `docs/label_mapping.md`. Small development samples extracted to `data/interim/ptbxl_sample/` and `data/interim/ecg_image_sample/`.
-
-### 3. Synthetic ECG Image Generator (`ecg_digitization.synthetic`)
-- Implemented `SyntheticECGGenerator` with:
-  - Millimeter grid paper generation (1 mm minor, 5 mm major).
-  - Standard clinical calibration (25 mm/s paper speed, 10 mm/mV voltage gain, 150 DPI).
-  - Standard 12-lead layout (3x4 columns of 2.5s segments + 10s Lead II bottom rhythm strip).
-  - Ground-truth binary trace segmentation mask (255 = trace, 0 = grid/paper).
-  - Configurable photographic degradation: rotation skew, perspective distortion, non-uniform lighting shadow gradients, blur, and Gaussian noise.
-  - Deterministic generation with seed control.
-
-### 4. ECG Image Preprocessing (`ecg_digitization.preprocessing`)
-- Implemented modular, independently callable stages:
-  - `load_and_validate_image`: Image validation, channel normalization, and dimension checks.
-  - `to_grayscale` & `enhance_contrast`: Grayscale conversion and CLAHE local contrast enhancement.
-  - `estimate_skew_angle` & `deskew_image`: Hough line transform angle estimation and affine deskewing.
-  - `suppress_grid`: Red channel extraction and HSV color gating to eliminate pink/red paper grid lines while preserving dark waveform ink.
-  - `binarize_trace`: Dual adaptive Gaussian + Otsu thresholding with morphological cleaning.
-
-### 5. Lead Region Detection (`ecg_digitization.preprocessing.lead_detector`)
-- Implemented `LeadLayoutDetector` supporting:
-  - Standard clinical 3x4 + 1 layout (12 grid leads + continuous Lead II rhythm strip).
-  - Stacked 12x1 layout.
-  - Geometry-based bounding box extraction with margin handling.
-  - Clear warning flags for unsupported layouts.
-
-### 6. Waveform Extraction & Digital Reconstruction (`ecg_digitization.reconstruction`)
-- `WaveformExtractor`: Per-column median and weighted-centroid trace extraction with active-span boundary trimming and linear gap interpolation.
-- `SignalReconstructor`: Maps pixel trajectories into physiological mV voltages and physical time (seconds), resamples to target sampling rate (100 Hz), and exports to CSV and 12-lead diagnostic plots.
-
-### 7. Quantitative Evaluation Harness (`ecg_digitization.evaluation`)
-- Implemented `evaluate_digitization_fidelity` computing:
-  - Pearson correlation coefficient ($r$)
-  - Root Mean Squared Error (RMSE in mV)
-  - Signal-to-Noise Ratio (SNR in dB)
-  - Trace Completeness Ratio (%)
-- **Actual Verification Results on PTB-XL Sample `00001_lr`**:
-  - End-to-end execution: Signal -> Synthetic image with degradation -> Preprocessing -> Lead detection -> Waveform extraction -> Reconstructed signal.
-  - Lead I Pearson $r$: **+0.8754**
-  - Lead II Pearson $r$: **+0.9058**
-  - Lead V2 Pearson $r$: **+0.6396**
-  - Mean RMSE: **0.2145 mV**
-  - Mean Trace Completeness: **100.0%**
-  - Output artifacts generated in `data/interim/session1_demo_output/`.
-
-### 8. Test Suite Status
-- Total Tests: **76 passed** (up from 67).
-- Code Coverage: **79%** across the extended codebase.
+## Session 1 Verified Milestones (Completed)
+- [x] Environment & Hydra config fix: Added `configs/env/default.yaml` with dynamic env interpolation, updated `configs/config.yaml`, and unignored `configs/env/` in `.gitignore`.
+- [x] Dataset pairing analysis (`docs/dataset_pairing.md`): Discovered Kaggle images are unpaired beat plots; established ground-truth evaluation discipline using PTB-XL paired synthetic rendering.
+- [x] PTB-XL SCP Statement label audit (`docs/label_mapping.md`): Mapped AFIB (1,514), SBRAD (637), STACH (877), STD_ (1,009), BBB (2,273), MI (5,486), and flagged sparse STE_ (28 direct).
+- [x] Synthetic ECG Generator (`ecg_digitization.synthetic`): Realistic 12-lead clinical paper grid (1 mm / 5 mm, 25 mm/s, 10 mm/mV, 150 DPI), 3x4 + 1 rhythm strip layout, paired binary trace masks, and configurable photographic degradations.
+- [x] Image Preprocessing (`ecg_digitization.preprocessing`): Automated Hough deskewing, dual-domain red-channel/HSV grid suppression, and adaptive Gaussian + Otsu binarization.
+- [x] Lead Layout Detector (`ecg_digitization.preprocessing.lead_detector`): Standard 3x4 + 1 rhythm strip and 12x1 layout bounding box extraction.
+- [x] Waveform Extractor & Reconstructor (`ecg_digitization.reconstruction`): Active-span column-wise centroid/median tracking, isoelectric baseline subtraction, calibrated mV/time conversion, and uniform 100 Hz resampling.
+- [x] Evaluation Harness (`ecg_digitization.evaluation`): Ground-truth comparison measuring Pearson $r$, RMSE, SNR, and completeness ($r \approx 0.9058$ on Lead II).
 
 ---
 
-## Known Limitations & Considerations
-1. Classical extraction handles single-trace leads cleanly; high overlapping leads (where Lead I and Lead II physically overlap in y-space) require morphological trace separation or deep segmentation.
-2. Direct `STE_` SCP code in PTB-XL has low prevalence (28 samples), requiring proxy diagnosis via acute myocardial injury codes (`INJAS`, `INJAL`, etc.).
-3. Real Kaggle image dataset lacks paired digital signals and is used solely for qualitative robustness evaluation.
+## Session 2 Verified Milestones (Completed)
+- [x] **Physiological Rhythm & Rate Analysis** (`ecg_digitization.inference.analyzer`):
+  - Butterworth bandpass filtering (0.5–40 Hz) and Pan-Tompkins QRS R-peak detection.
+  - Heart rate calculation (BPM) and RR interval variability ($CV_{RR}$) assessment.
+  - Signal Quality Index (good / acceptable / low) with lead-off/flatline detection.
+  - Rule-based clinical findings for Sinus Bradycardia ($<60\text{ bpm}$) and Sinus Tachycardia ($>100\text{ bpm}$).
+- [x] **AI Multi-Label Classifier & Model Safety Interface** (`ecg_digitization.models`, `inference.classifier_interface`):
+  - 1D ResNet baseline architecture (`ECGResNet1D`) taking 12-lead signals `(batch, 12, seq_len)`.
+  - CPU smoke test: Verified forward pass, finite BCE loss backward pass, checkpoint saving, and checkpoint loading.
+  - Clinical decision-support safety: Returns explicit `model_not_trained` status when checkpoint is absent; returns `Not supported by available labels` for sparse direct labels (`STE_`); zero fabricated predictions.
+- [x] **Explainable Decision-Support Report Generator** (`ecg_digitization.inference.report_generator`):
+  - Generates structured machine-readable JSON and formatted, printable clinical HTML reports.
+  - Embeds multi-lead waveform plots, physiological rate measurements, model status, and mandatory regulatory disclaimers.
+  - Clinical Risk Level explicitly marked `Not assessed` pending prospective clinical validation.
+- [x] **Demonstrable FastAPI Service & Interactive Web Application** (`ecg_digitization.service.app`):
+  - Six interactive dashboard screens: Dashboard, Synthetic Generator, Digitisation Pipeline, Reconstructed Waveforms, AI Analysis & Screening, Clinical Report.
+  - REST API endpoints for status, sample listing, synthetic generation, digitisation, analysis, and report generation/download.
+  - Windows Python 3.14 compatible (bypasses AnyIO Starlette thread deadlocks).
+- [x] **Kaggle GPU Training Orchestration Wrapper** (`ecg_digitization.training.kaggle_manager`):
+  - Kaggle CLI check and credential masking.
+  - Generates `kernel-metadata.json` and standalone `train_kaggle.py` script.
+  - Generates exact dry-run submission command without autonomous remote job submission risks.
+- [x] **Comprehensive Documentation & Academic Traceability**:
+  - Updated `README.md`, `docs/architecture.md`, `docs/traceability_matrix.md`, and created `docs/demo_guide.md`.
+- [x] **Full Test Suite Verification**:
+  - **87/87 tests passed** with **85% code coverage**.
 
 ---
 
-## Next Actions for Session 2
-1. **ECG Analysis Foundation**:
-   - Rule-based R-peak detector, heart rate calculation, and Bradycardia/Tachycardia diagnostic rules with signal quality warnings.
-   - Multi-label classifier interface & 1D CNN/ResNet baseline model architecture compatible with model registry.
-   - Honest "model_not_trained" and "Not supported by available labels" status handling.
-2. **Explainable Report Generation**:
-   - Structured JSON and printable HTML clinical decision-support report generator with lead plots, findings, and disclaimer.
-3. **Minimal Demonstrable Application**:
-   - FastAPI backend API for digitization, synthetic generation, analysis, and report generation.
-   - Interactive, lightweight frontend UI for uploading ECG images, running digitization, previewing reconstructed waveforms, and downloading reports.
-4. **Kaggle Training Infrastructure**:
-   - Clean Kaggle CLI wrapper for generating notebook/kernel metadata and dry-run execution commands.
-5. **Final Academic Packaging**:
-   - Update `README.md`, `docs/architecture.md`, `docs/traceability_matrix.md`.
+## Next Steps for User
+1. Execute full GPU training on Kaggle using the prepared bundle in `artifacts/kaggle_kernel_bundle/` via the dry-run command.
+2. Load resulting trained weights checkpoint `ecg_resnet1d_baseline.pt` into `ECGClassifierInterface` for quantitative validation.
+3. Conduct final academic mid-viva presentation and report submission at JIIT Noida.

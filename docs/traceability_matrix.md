@@ -18,8 +18,9 @@ Project: ECG Digitisation & Analysis Using AI (B.Tech Major Project)
 | **B.6** | Pixel-to-time and pixel-to-voltage calibration & resampling | Synopsis / Mid-Viva | `ecg_digitization.reconstruction.calibrator` | `SignalReconstructor`, `ReconstructedECG` | **Done** |
 | **B.7** | Digital reconstruction export (CSV, multi-lead plot) | Synopsis / Mid-Viva | `ReconstructedECG.save_csv`, `save_plot` | `demo_00001_signal.csv`, `demo_00001_plot.png` | **Done** |
 | **B.8** | Reconstruction evaluation harness (Pearson r, RMSE, SNR, completeness) | Synopsis / Mid-Viva | `ecg_digitization.evaluation.metrics` | `reconstruction_metrics.json` (r up to 0.9058) | **Done** |
-| **C.1** | R-peak & heart rate estimation (Bradycardia / Tachycardia rules) | Synopsis / Mid-Viva | Scheduled for Session 2 | Implementation planned in Step 1 of Session 2 | **Pending** |
-| **C.2** | AI multi-label pathology classifier (AFIB, BBB, MI, STD, STE) | Synopsis / Mid-Viva | Scheduled for Session 2 | Model architecture & registry scaffold ready | **Pending** |
-| **C.3** | Clinical decision-support explainability report (JSON + HTML) | Synopsis / Mid-Viva | Scheduled for Session 2 | Implementation planned in Step 2 of Session 2 | **Pending** |
-| **C.4** | Demonstrable web UI & FastAPI backend | Synopsis / Mid-Viva | Scheduled for Session 2 | Implementation planned in Step 3 of Session 2 | **Pending** |
-| **C.5** | Kaggle GPU training orchestration wrapper | Synopsis / Mid-Viva | Scheduled for Session 2 | Implementation planned in Step 4 of Session 2 | **Pending** |
+| **C.1** | R-peak & heart rate estimation (Bradycardia / Tachycardia rules) | Synopsis / Mid-Viva | `ecg_digitization.inference.analyzer` | `test_rhythm_analyzer_normal_and_bradycardia` | **Done** |
+| **C.2** | AI multi-label pathology classifier architecture & interface | Synopsis / Mid-Viva | `ecg_digitization.models.classifier_1d`, `inference.classifier_interface` | `test_classifier_cpu_smoke_test_and_checkpoint_roundtrip` | **Done** |
+| **C.3** | Clinical decision-support explainability report (JSON + HTML) | Synopsis / Mid-Viva | `ecg_digitization.inference.report_generator` | `test_digitize_and_analyze_handlers`, HTML report generation | **Done** |
+| **C.4** | Demonstrable web UI & FastAPI backend | Synopsis / Mid-Viva | `ecg_digitization.service.app` | `tests/unit/test_service.py` (6 passing endpoint tests) | **Done** |
+| **C.5** | Kaggle GPU training orchestration wrapper | Synopsis / Mid-Viva | `ecg_digitization.training.kaggle_manager` | `tests/unit/test_kaggle.py`, dry-run generation | **Done** |
+| **C.6** | Multi-GPU model training & clinical prospective trial | Synopsis / Mid-Viva | Pending user Kaggle GPU run | Reserved for user-conducted cloud training | **Pending** |

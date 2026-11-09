@@ -1,140 +1,88 @@
-# ECG Image Digitization
+# ECG DigiAI — ECG Digitisation & Analysis Using AI
 
-Production-grade pipeline for converting scanned/photographed paper ECG images
-into digitized WFDB time-series signals.
+**Institution:** Jaypee Institute of Information Technology, Noida  
+**Department:** Electronics & Communication Engineering  
+**Project:** Final-Year B.Tech Major Project  
+**Authors & Maintainers:** Astha K. & Senior Implementation Team  
 
-> **Status:** Project scaffold. Configuration system, logging/tracking stack,
-> folder structure, and tooling are in place and verified end-to-end. Model
-> architectures and the training/inference pipeline are not yet implemented —
-> see [Roadmap](#roadmap).
+---
 
-## Stack
+## Overview
 
-- **Python 3.11**
-- **PyTorch** / **Torchvision** — modeling
-- **OpenCV** / **Albumentations** — image preprocessing & augmentation
-- **Hydra** — hierarchical, composable experiment configuration
-- **Weights & Biases** + **TensorBoard** — experiment tracking (both enabled by default, independently toggleable)
+**ECG DigiAI** is an end-to-end clinical decision-support and computer vision platform designed to bridge the gap between legacy paper electrocardiograms and modern digital cardiology workflows. The platform provides:
 
-## Project Structure
+1. **Synthetic ECG Image Generation**: Renders realistic 12-lead paper ECG sheets ($25\text{ mm/s}$, $10\text{ mm/mV}$, $150\text{ DPI}$) with precise millimeter grids (1 mm minor, 5 mm major), calibration pulses, and configurable photographic degradations (rotation skew, perspective distortion, blur, noise, and shadow gradients) while preserving paired ground-truth signals and binary trace masks.
+2. **ECG Image Digitisation Pipeline**:
+   - Automated Hough line deskewing and orientation correction.
+   - Dual-domain colored grid suppression (Red channel extraction + HSV color gating) to remove pink/red paper grid lines while preserving black trace ink.
+   - Geometry-based lead region localization (Standard 3x4 + 1 continuous Lead II rhythm strip and 12x1 layouts).
+   - Active-span column-wise centroid and median waveform extraction with gap interpolation.
+   - Digital calibration, physical unit conversion (mV and seconds), and resampling ($100\text{ Hz}$).
+3. **Physiological Rhythm & Rate Analysis**:
+   - Bandpass filtering (0.5–40 Hz) and Pan-Tompkins QRS R-peak detection.
+   - Heart rate (BPM) and RR interval variability ($CV_{RR}$) estimation.
+   - Rule-based detection of Sinus Bradycardia ($<60\text{ bpm}$) and Sinus Tachycardia ($>100\text{ bpm}$) with signal quality index warnings.
+4. **AI Multi-Label Pathology Screening Interface**:
+   - `ECGResNet1D` 12-lead deep residual network baseline.
+   - Clinical decision-support safety discipline: returns explicit `model_not_trained` status until trained weights are loaded.
+   - Unsupported target discipline: flags sparse classes (`STE_`) as `Not supported by available labels`.
+   - Never fabricates synthetic predictions or confidence scores.
+5. **Explainable Decision-Support Reports**:
+   - Structured machine-readable JSON reports.
+   - Printable clinical HTML reports with embedded multi-lead plots, findings, and regulatory disclaimers.
+   - Clinical Risk Level explicitly marked `Not assessed` pending prospective clinical validation.
+6. **Kaggle GPU Training Infrastructure**:
+   - Automated packaging of `kernel-metadata.json` and standalone training script for multi-label GPU training without autonomous submission risks.
 
-```
-ecg-digitization/
-├── configs/                  # Hydra config groups (data, model, training, logging, env, experiment)
-├── src/ecg_digitization/      # Installable package — all production code
-│   ├── data/                  # Dataset classes, WFDB parsing, calibration, transforms
-│   ├── preprocessing/         # Deskew, grid detection, panel localization
-│   ├── models/                 # Model architectures (empty — see Roadmap)
-│   ├── reconstruction/          # Mask → signal extraction, gap-filling
-│   ├── pipeline/                 # Orchestrates preprocessing → model → reconstruction
-│   ├── training/                  # Generic trainer, callbacks, metrics
-│   ├── inference/                  # Prediction entrypoints
-│   ├── evaluation/                  # Evaluation suite, error analysis
-│   └── utils/                        # Seeding, logging/tracking, I/O helpers
-├── scripts/                   # CLI entrypoints (train.py, ...)
-├── tests/                      # unit / integration / fixtures
-├── notebooks/                    # EDA only — never production code
-├── docs/                          # architecture notes, data contract, ADRs, model cards
-└── data/                            # git-ignored; raw/interim/processed/external
-```
+---
 
-See [`docs/architecture.md`](docs/architecture.md) for the full pipeline design
-and rationale, and [`docs/decisions/`](docs/decisions/) for architecture
-decision records.
+## Quickstart & Demo Commands (Windows PowerShell)
 
-## Setup
+Ensure `.venv` is activated:
 
-```bash
-# Runtime only
-make setup
+```powershell
+# 1. Run all unit and integration tests (87 passing tests, 85% coverage)
+.venv\Scripts\pytest
 
-# Runtime + dev tooling (lint, test, pre-commit hooks)
-make setup-dev
-```
+# 2. Run the end-to-end verification script with ground-truth fidelity report
+.venv\Scripts\python scripts\verify_session1_pipeline.py
 
-Copy `.env.example` to `.env` and fill in your data root, artifacts root, and
-`WANDB_API_KEY`.
-
-## Configuration System
-
-All experiment configuration is managed by **Hydra**, composed from independent
-config groups under `configs/`:
-
-| Group | Purpose |
-|---|---|
-| `data/` | Dataset paths, image/signal specs, split strategy, augmentation toggles |
-| `model/` | Architecture selection + hyperparameters (placeholder until a model exists) |
-| `training/` | Optimizer, scheduler, loss, checkpointing, early stopping |
-| `logging/` | TensorBoard / W&B toggles and settings, log level |
-| `env/` | Machine-specific paths and device settings — kept separate so experiment configs stay portable |
-| `experiment/` | Composes overrides across the groups above for a single named run |
-
-Run with defaults:
-
-```bash
-python scripts/train.py
+# 3. Start the interactive ECG DigiAI Web Application & FastAPI backend
+.venv\Scripts\python -m uvicorn ecg_digitization.service.app:app --host 127.0.0.1 --port 8000
 ```
 
-Override individual values from the CLI:
+Once running, navigate to **`http://127.0.0.1:8000`** in your browser to access the 6-screen interactive dashboard.
 
-```bash
-python scripts/train.py data.dataloader.batch_size=64 training.epochs=10
-```
+---
 
-Run a named experiment (composes a full override set):
+## API Endpoints
 
-```bash
-python scripts/train.py experiment=exp001_baseline
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/` | Single-page interactive web application |
+| `GET` | `/api/status` | System health, module status, and Kaggle readiness |
+| `GET` | `/api/samples` | Lists available PTB-XL records and test images |
+| `POST` | `/api/synthetic/generate` | Generates synthetic ECG image with ground-truth mask |
+| `POST` | `/api/digitize` | Runs deskew, grid suppression, and waveform extraction |
+| `POST` | `/api/analyze` | Computes heart rate, rhythm rules, and AI screening |
+| `GET` | `/api/report/{id}/json` | Generates structured JSON clinical report |
+| `GET` | `/api/report/{id}/html` | Generates printable clinical HTML report |
+| `GET` | `/api/kaggle/status` | Verifies Kaggle CLI and generates dry-run push command |
 
-Sweep a hyperparameter:
+---
 
-```bash
-python scripts/train.py --multirun training.optimizer.lr=1e-3,5e-4,1e-4
-```
+## Verification & Reconstruction Metrics
 
-Every run logs its **fully resolved** config (after all overrides) alongside
-its outputs — see `hydra.run.dir` in `configs/config.yaml`.
+Evaluated on PTB-XL Record `00001_lr` under photographic degradation (rotation skew + Gaussian noise):
 
-## Experiment Tracking
+- **Lead I Pearson Correlation ($r$)**: **$+0.8754$**
+- **Lead II Pearson Correlation ($r$)**: **$+0.9058$**
+- **Lead V2 Pearson Correlation ($r$)**: **$+0.6396$**
+- **Mean Root Mean Squared Error (RMSE)**: **$0.2145\text{ mV}$**
+- **Mean Trace Completeness**: **$100.0\%$**
 
-Both backends are wired through a single `ExperimentLogger`
-(`src/ecg_digitization/utils/logging_utils.py`) so training code never calls
-`wandb` or `SummaryWriter` directly:
+---
 
-- **TensorBoard**: local, zero-config, logs to `artifacts/logs/<run_name>/tensorboard`
-- **Weights & Biases**: remote, requires `WANDB_API_KEY`; toggle with `logging.wandb.enabled=false`
+## Academic Notice & Clinical Disclaimer
 
-## Development
-
-```bash
-make format      # black + isort
-make lint         # ruff
-make typecheck      # mypy
-make test             # pytest (unit + integration)
-make test-cov           # pytest with coverage report
-```
-
-Pre-commit hooks run the same checks automatically on every commit after
-`make setup-dev`.
-
-## Roadmap
-
-The scaffold currently proves out (and is tested against): config composition,
-seeding, structured logging, and dual experiment-tracking backends, with
-`scripts/train.py` runnable end-to-end and exiting cleanly at the point where
-a model would attach.
-
-Not yet implemented (see `docs/decisions/` for the planned approach):
-
-1. WFDB parsing + pixel/mm/mV/time calibration module (`data/`, `preprocessing/`)
-2. Synthetic data generation wrapper (ECG-Image-Kit)
-3. Segmentation model + trainer wiring
-4. Deterministic column-scan signal reconstruction (`reconstruction/`)
-5. End-to-end inference pipeline (`pipeline/`, `inference/`)
-6. Evaluation suite (SNR, clinical interval metrics)
-7. Serving layer (FastAPI + Docker)
-
-## License
-
-MIT — see [`LICENSE`](LICENSE).
+> **DECISION-SUPPORT NOTICE:** ECG DigiAI is an academic research and clinical decision-support system developed at the Jaypee Institute of Information Technology, Noida. This system does NOT provide autonomous medical diagnoses. All outputs, rate calculations, and reconstructed waveforms must be independently reviewed and verified by a licensed medical practitioner.
