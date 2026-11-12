@@ -1,0 +1,520 @@
+{
+  "model_architecture": "ECGDigitizerUNet (ResNet-18 U-Net + Differentiable Soft-Argmax)",
+  "training_scope": "All 12 Standard Clinical Leads + Rhythm Strip",
+  "supported_leads": [
+    "I",
+    "II",
+    "III",
+    "AVR",
+    "AVL",
+    "AVF",
+    "V1",
+    "V2",
+    "V3",
+    "V4",
+    "V5",
+    "V6",
+    "II_RHYTHM"
+  ],
+  "total_training_duration_s": 1556.98,
+  "device": "mps",
+  "best_val_mean_pearson_r": 0.9786,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.0101,
+      "val_mean_pearson_r": 0.9777,
+      "val_mean_rmse_mv": 0.0497,
+      "per_lead": {
+        "I": {
+          "pearson_r": 0.9938,
+          "rmse_mv": 0.0191,
+          "snr_db": 18.25,
+          "completeness": 1.0
+        },
+        "II": {
+          "pearson_r": 0.9866,
+          "rmse_mv": 0.0347,
+          "snr_db": 15.14,
+          "completeness": 1.0
+        },
+        "III": {
+          "pearson_r": 0.9529,
+          "rmse_mv": 0.0708,
+          "snr_db": 9.6,
+          "completeness": 1.0
+        },
+        "AVR": {
+          "pearson_r": 0.9991,
+          "rmse_mv": 0.0088,
+          "snr_db": 23.81,
+          "completeness": 1.0
+        },
+        "AVL": {
+          "pearson_r": 0.9811,
+          "rmse_mv": 0.0319,
+          "snr_db": 13.63,
+          "completeness": 1.0
+        },
+        "AVF": {
+          "pearson_r": 0.9697,
+          "rmse_mv": 0.049,
+          "snr_db": 11.6,
+          "completeness": 1.0
+        },
+        "V1": {
+          "pearson_r": 0.9901,
+          "rmse_mv": 0.0303,
+          "snr_db": 16.02,
+          "completeness": 1.0
+        },
+        "V2": {
+          "pearson_r": 0.9594,
+          "rmse_mv": 0.1086,
+          "snr_db": 9.67,
+          "completeness": 1.0
+        },
+        "V3": {
+          "pearson_r": 0.9764,
+          "rmse_mv": 0.0704,
+          "snr_db": 12.24,
+          "completeness": 1.0
+        },
+        "V4": {
+          "pearson_r": 0.9753,
+          "rmse_mv": 0.0672,
+          "snr_db": 12.24,
+          "completeness": 1.0
+        },
+        "V5": {
+          "pearson_r": 0.9565,
+          "rmse_mv": 0.0762,
+          "snr_db": 10.06,
+          "completeness": 1.0
+        },
+        "V6": {
+          "pearson_r": 0.991,
+          "rmse_mv": 0.0299,
+          "snr_db": 16.53,
+          "completeness": 1.0
+        }
+      }
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.0085,
+      "val_mean_pearson_r": 0.9779,
+      "val_mean_rmse_mv": 0.0505,
+      "per_lead": {
+        "I": {
+          "pearson_r": 0.9938,
+          "rmse_mv": 0.0195,
+          "snr_db": 18.07,
+          "completeness": 1.0
+        },
+        "II": {
+          "pearson_r": 0.9866,
+          "rmse_mv": 0.0351,
+          "snr_db": 15.03,
+          "completeness": 1.0
+        },
+        "III": {
+          "pearson_r": 0.953,
+          "rmse_mv": 0.0714,
+          "snr_db": 9.52,
+          "completeness": 1.0
+        },
+        "AVR": {
+          "pearson_r": 0.9991,
+          "rmse_mv": 0.0094,
+          "snr_db": 23.23,
+          "completeness": 1.0
+        },
+        "AVL": {
+          "pearson_r": 0.9813,
+          "rmse_mv": 0.0321,
+          "snr_db": 13.57,
+          "completeness": 1.0
+        },
+        "AVF": {
+          "pearson_r": 0.9699,
+          "rmse_mv": 0.0494,
+          "snr_db": 11.52,
+          "completeness": 1.0
+        },
+        "V1": {
+          "pearson_r": 0.9901,
+          "rmse_mv": 0.0313,
+          "snr_db": 15.75,
+          "completeness": 1.0
+        },
+        "V2": {
+          "pearson_r": 0.9604,
+          "rmse_mv": 0.1106,
+          "snr_db": 9.51,
+          "completeness": 1.0
+        },
+        "V3": {
+          "pearson_r": 0.9768,
+          "rmse_mv": 0.0722,
+          "snr_db": 12.02,
+          "completeness": 1.0
+        },
+        "V4": {
+          "pearson_r": 0.9757,
+          "rmse_mv": 0.0684,
+          "snr_db": 12.09,
+          "completeness": 1.0
+        },
+        "V5": {
+          "pearson_r": 0.9569,
+          "rmse_mv": 0.0768,
+          "snr_db": 10.0,
+          "completeness": 1.0
+        },
+        "V6": {
+          "pearson_r": 0.9911,
+          "rmse_mv": 0.0304,
+          "snr_db": 16.39,
+          "completeness": 1.0
+        }
+      }
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.008,
+      "val_mean_pearson_r": 0.9782,
+      "val_mean_rmse_mv": 0.0503,
+      "per_lead": {
+        "I": {
+          "pearson_r": 0.9938,
+          "rmse_mv": 0.0194,
+          "snr_db": 18.07,
+          "completeness": 1.0
+        },
+        "II": {
+          "pearson_r": 0.9867,
+          "rmse_mv": 0.0351,
+          "snr_db": 15.05,
+          "completeness": 1.0
+        },
+        "III": {
+          "pearson_r": 0.9535,
+          "rmse_mv": 0.0713,
+          "snr_db": 9.54,
+          "completeness": 1.0
+        },
+        "AVR": {
+          "pearson_r": 0.9991,
+          "rmse_mv": 0.0087,
+          "snr_db": 23.96,
+          "completeness": 1.0
+        },
+        "AVL": {
+          "pearson_r": 0.9815,
+          "rmse_mv": 0.032,
+          "snr_db": 13.59,
+          "completeness": 1.0
+        },
+        "AVF": {
+          "pearson_r": 0.9703,
+          "rmse_mv": 0.0492,
+          "snr_db": 11.56,
+          "completeness": 1.0
+        },
+        "V1": {
+          "pearson_r": 0.9902,
+          "rmse_mv": 0.0309,
+          "snr_db": 15.86,
+          "completeness": 1.0
+        },
+        "V2": {
+          "pearson_r": 0.9611,
+          "rmse_mv": 0.11,
+          "snr_db": 9.56,
+          "completeness": 1.0
+        },
+        "V3": {
+          "pearson_r": 0.9772,
+          "rmse_mv": 0.072,
+          "snr_db": 12.05,
+          "completeness": 1.0
+        },
+        "V4": {
+          "pearson_r": 0.9761,
+          "rmse_mv": 0.0682,
+          "snr_db": 12.1,
+          "completeness": 1.0
+        },
+        "V5": {
+          "pearson_r": 0.9574,
+          "rmse_mv": 0.0767,
+          "snr_db": 10.0,
+          "completeness": 1.0
+        },
+        "V6": {
+          "pearson_r": 0.9913,
+          "rmse_mv": 0.0305,
+          "snr_db": 16.36,
+          "completeness": 1.0
+        }
+      }
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.0077,
+      "val_mean_pearson_r": 0.9786,
+      "val_mean_rmse_mv": 0.0505,
+      "per_lead": {
+        "I": {
+          "pearson_r": 0.9939,
+          "rmse_mv": 0.0192,
+          "snr_db": 18.16,
+          "completeness": 1.0
+        },
+        "II": {
+          "pearson_r": 0.9869,
+          "rmse_mv": 0.0351,
+          "snr_db": 15.03,
+          "completeness": 1.0
+        },
+        "III": {
+          "pearson_r": 0.9542,
+          "rmse_mv": 0.0712,
+          "snr_db": 9.55,
+          "completeness": 1.0
+        },
+        "AVR": {
+          "pearson_r": 0.9991,
+          "rmse_mv": 0.0089,
+          "snr_db": 23.72,
+          "completeness": 1.0
+        },
+        "AVL": {
+          "pearson_r": 0.9818,
+          "rmse_mv": 0.0319,
+          "snr_db": 13.63,
+          "completeness": 1.0
+        },
+        "AVF": {
+          "pearson_r": 0.9706,
+          "rmse_mv": 0.0493,
+          "snr_db": 11.53,
+          "completeness": 1.0
+        },
+        "V1": {
+          "pearson_r": 0.9903,
+          "rmse_mv": 0.0313,
+          "snr_db": 15.74,
+          "completeness": 1.0
+        },
+        "V2": {
+          "pearson_r": 0.9622,
+          "rmse_mv": 0.1109,
+          "snr_db": 9.49,
+          "completeness": 1.0
+        },
+        "V3": {
+          "pearson_r": 0.9779,
+          "rmse_mv": 0.0727,
+          "snr_db": 11.96,
+          "completeness": 1.0
+        },
+        "V4": {
+          "pearson_r": 0.9769,
+          "rmse_mv": 0.0683,
+          "snr_db": 12.1,
+          "completeness": 1.0
+        },
+        "V5": {
+          "pearson_r": 0.9582,
+          "rmse_mv": 0.0765,
+          "snr_db": 10.03,
+          "completeness": 1.0
+        },
+        "V6": {
+          "pearson_r": 0.9915,
+          "rmse_mv": 0.0302,
+          "snr_db": 16.45,
+          "completeness": 1.0
+        }
+      }
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.0074,
+      "val_mean_pearson_r": 0.9785,
+      "val_mean_rmse_mv": 0.0507,
+      "per_lead": {
+        "I": {
+          "pearson_r": 0.9937,
+          "rmse_mv": 0.0196,
+          "snr_db": 18.0,
+          "completeness": 1.0
+        },
+        "II": {
+          "pearson_r": 0.9867,
+          "rmse_mv": 0.0354,
+          "snr_db": 14.97,
+          "completeness": 1.0
+        },
+        "III": {
+          "pearson_r": 0.9545,
+          "rmse_mv": 0.0712,
+          "snr_db": 9.55,
+          "completeness": 1.0
+        },
+        "AVR": {
+          "pearson_r": 0.9991,
+          "rmse_mv": 0.0084,
+          "snr_db": 24.19,
+          "completeness": 1.0
+        },
+        "AVL": {
+          "pearson_r": 0.9814,
+          "rmse_mv": 0.0324,
+          "snr_db": 13.5,
+          "completeness": 1.0
+        },
+        "AVF": {
+          "pearson_r": 0.9706,
+          "rmse_mv": 0.0493,
+          "snr_db": 11.55,
+          "completeness": 1.0
+        },
+        "V1": {
+          "pearson_r": 0.9902,
+          "rmse_mv": 0.0312,
+          "snr_db": 15.77,
+          "completeness": 1.0
+        },
+        "V2": {
+          "pearson_r": 0.9623,
+          "rmse_mv": 0.1109,
+          "snr_db": 9.49,
+          "completeness": 1.0
+        },
+        "V3": {
+          "pearson_r": 0.9778,
+          "rmse_mv": 0.0735,
+          "snr_db": 11.87,
+          "completeness": 1.0
+        },
+        "V4": {
+          "pearson_r": 0.9769,
+          "rmse_mv": 0.0691,
+          "snr_db": 12.0,
+          "completeness": 1.0
+        },
+        "V5": {
+          "pearson_r": 0.9581,
+          "rmse_mv": 0.077,
+          "snr_db": 9.97,
+          "completeness": 1.0
+        },
+        "V6": {
+          "pearson_r": 0.9912,
+          "rmse_mv": 0.031,
+          "snr_db": 16.21,
+          "completeness": 1.0
+        }
+      }
+    }
+  ],
+  "final_per_lead_metrics": {
+    "I": {
+      "pearson_r": 0.9937,
+      "rmse_mv": 0.0196,
+      "snr_db": 18.0,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "II": {
+      "pearson_r": 0.9867,
+      "rmse_mv": 0.0354,
+      "snr_db": 14.97,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "III": {
+      "pearson_r": 0.9545,
+      "rmse_mv": 0.0712,
+      "snr_db": 9.55,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "AVR": {
+      "pearson_r": 0.9991,
+      "rmse_mv": 0.0084,
+      "snr_db": 24.19,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "AVL": {
+      "pearson_r": 0.9814,
+      "rmse_mv": 0.0324,
+      "snr_db": 13.5,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "AVF": {
+      "pearson_r": 0.9706,
+      "rmse_mv": 0.0493,
+      "snr_db": 11.55,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "V1": {
+      "pearson_r": 0.9902,
+      "rmse_mv": 0.0312,
+      "snr_db": 15.77,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "V2": {
+      "pearson_r": 0.9623,
+      "rmse_mv": 0.1109,
+      "snr_db": 9.49,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "V3": {
+      "pearson_r": 0.9778,
+      "rmse_mv": 0.0735,
+      "snr_db": 11.87,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "V4": {
+      "pearson_r": 0.9769,
+      "rmse_mv": 0.0691,
+      "snr_db": 12.0,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "V5": {
+      "pearson_r": 0.9581,
+      "rmse_mv": 0.077,
+      "snr_db": 9.97,
+      "completeness": 1.0,
+      "num_samples": 20480
+    },
+    "V6": {
+      "pearson_r": 0.9912,
+      "rmse_mv": 0.031,
+      "snr_db": 16.21,
+      "completeness": 1.0,
+      "num_samples": 20480
+    }
+  },
+  "split_provenance": {
+    "source_dataset": "PTB-XL v1.0.1 (PhysioNet)",
+    "train_folds": "1-8",
+    "val_fold": "9",
+    "test_fold": "10 (Strictly held-out, zero patient leakage)",
+    "num_train_records_used": 400,
+    "num_val_records_used": 80,
+    "num_train_crops": 4800,
+    "num_val_crops": 960
+  }
+}

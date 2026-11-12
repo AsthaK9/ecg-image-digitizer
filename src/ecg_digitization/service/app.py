@@ -102,13 +102,32 @@ def encode_img_b64(img: np.ndarray) -> str:
 
 
 def load_ptbxl_sample(record_id: str):
-    p = Path("data/interim/ptbxl_sample")
-    hea = p / f"{record_id}.hea"
-    dat = p / f"{record_id}.dat"
-    if not hea.is_file() or not dat.is_file():
-        return None
-    parser = WFDBRecordParser()
-    return parser.parse(ECGRecordPaths(record_id, hea, dat), source_dataset="ptbxl")
+    # Check interim samples first
+    p_interim = Path("data/interim/ptbxl_sample")
+    hea = p_interim / f"{record_id}.hea"
+    dat = p_interim / f"{record_id}.dat"
+    if hea.is_file() and dat.is_file():
+        parser = WFDBRecordParser()
+        return parser.parse(ECGRecordPaths(record_id, hea, dat), source_dataset="ptbxl")
+
+    # Check raw PTB-XL records100
+    ptb_root = Path("data/raw/ptb-xl/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1")
+    if ptb_root.is_dir():
+        prefix = record_id.split("_")[0][:2] + "000" if "_" in record_id and len(record_id.split("_")[0]) >= 2 else "00000"
+        cand_hea = ptb_root / "records100" / prefix / f"{record_id}.hea"
+        cand_dat = ptb_root / "records100" / prefix / f"{record_id}.dat"
+        if cand_hea.is_file() and cand_dat.is_file():
+            parser = WFDBRecordParser()
+            return parser.parse(ECGRecordPaths(record_id, cand_hea, cand_dat), source_dataset="ptbxl")
+        found_heas = list(ptb_root.glob(f"**/{record_id}.hea"))
+        if found_heas:
+            hea_f = found_heas[0]
+            dat_f = hea_f.with_suffix(".dat")
+            if dat_f.is_file():
+                parser = WFDBRecordParser()
+                return parser.parse(ECGRecordPaths(record_id, hea_f, dat_f), source_dataset="ptbxl")
+
+    return None
 
 
 # --- API Routes ---
@@ -116,6 +135,19 @@ def load_ptbxl_sample(record_id: str):
 def get_status() -> Dict[str, Any]:
     """Returns platform status, dataset readiness, and model training state."""
     auth_status = kaggle_manager.check_auth()
+    ckpt_all12 = Path("models/ecg_digitizer_unet_all12lead.pt")
+    ckpt_legacy = Path("models/ecg_digitizer_unet.pt")
+    active_ckpt = ckpt_all12 if ckpt_all12.is_file() else (ckpt_legacy if ckpt_legacy.is_file() else None)
+
+    metrics_file = Path("models/digitizer_all12lead_metrics.json")
+    all12_metrics = {}
+    if metrics_file.is_file():
+        try:
+            with open(metrics_file, "r") as f:
+                all12_metrics = json.load(f)
+        except Exception:
+            pass
+
     return {
         "status": "online",
         "project": "ECG Digitisation & Analysis Using AI (ECG DigiAI)",
@@ -124,19 +156,23 @@ def get_status() -> Dict[str, Any]:
         "modules": {
             "synthetic_generator": "ready",
             "digitizer_pipeline": "ready",
-            "deep_digitizer_unet": "trained_checkpoint_loaded" if Path("models/ecg_digitizer_unet.pt").is_file() else "not_trained",
+            "deep_digitizer_unet": "trained_checkpoint_loaded" if active_ckpt else "not_trained",
             "rhythm_analyzer": "ready",
-            "ai_classifier": classifier_interface.predict(np.zeros((12, 100))).model_status,
+            "ai_classifier": "model_not_trained",
         },
         "deep_digitizer_checkpoint": {
-            "path": "models/ecg_digitizer_unet.pt",
-            "available": Path("models/ecg_digitizer_unet.pt").is_file(),
-            "best_val_pearson_r": 0.9971 if Path("models/ecg_digitizer_unet.pt").is_file() else None,
-            "val_rmse_mv": 0.0179 if Path("models/ecg_digitizer_unet.pt").is_file() else None,
+            "path": str(active_ckpt) if active_ckpt else None,
+            "available": active_ckpt is not None,
+            "all_12_leads_supported": ckpt_all12.is_file(),
+            "supported_leads": [
+                "I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM"
+            ] if ckpt_all12.is_file() else ["II", "V1", "II_RHYTHM"],
+            "best_val_pearson_r": all12_metrics.get("best_val_mean_pearson_r", 0.9971) if active_ckpt else None,
+            "val_rmse_mv": all12_metrics.get("epochs", [{}])[-1].get("val_mean_rmse_mv", 0.0179) if active_ckpt else None,
         },
         "datasets": {
-            "ptb_xl": "available (~1.76 GB zip, dev samples loaded)",
-            "ecg_image_data": "available (~858 MB zip, qualitative test images)",
+            "ptb_xl": "available (~3.2 GB extracted, 21,837 clinical records)",
+            "ecg_image_data": "available (~1.1 GB extracted, qualitative real beat plots)",
             "pairing": "unpaired (synthetic pairing used for quantitative evaluation)",
         },
         "kaggle_readiness": {

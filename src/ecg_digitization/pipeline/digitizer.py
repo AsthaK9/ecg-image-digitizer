@@ -75,7 +75,11 @@ class DigitizationPipelineResult:
 
         # Draw lead bounding boxes and reconstructed waveform traces
         for name, region in self.layout.leads.items():
-            is_trained = name in ("II", "V1", "II_RHYTHM")
+            if name in self.extracted_traces:
+                is_trained = self.extracted_traces[name].is_trained_lead
+            else:
+                is_trained = name in ("II", "V1", "II_RHYTHM")
+
             if region.is_rhythm:
                 box_color = (220, 150, 0)       # Cyan for rhythm
                 tag = "[Rhythm - Validated]" if is_trained else "[Rhythm - Exp]"
@@ -123,10 +127,21 @@ class DigitizationPipelineResult:
         banner = np.full((banner_h, w, 3), 245, dtype=np.uint8)
         cv2.line(banner, (0, banner_h - 1), (w, banner_h - 1), (200, 200, 200), 1)
 
-        banner_text = (
-            f"ECG DigiAI 12-Lead Diagnostic Overlay | Mode: {self.extractor_mode_used.upper()} | "
-            f"Green: Validated Leads (II, V1) | Orange: Experimental Leads | Red Trace: Reconstructed Waveform"
+        all_val = (
+            all(getattr(tr, "is_trained_lead", False) for tr in self.extracted_traces.values())
+            if self.extracted_traces
+            else False
         )
+        if all_val:
+            banner_text = (
+                f"ECG DigiAI 12-Lead Diagnostic Overlay | Mode: {self.extractor_mode_used.upper()} | "
+                f"Green: All 12 Standard Clinical Leads Validated | Red Trace: Reconstructed Waveform"
+            )
+        else:
+            banner_text = (
+                f"ECG DigiAI 12-Lead Diagnostic Overlay | Mode: {self.extractor_mode_used.upper()} | "
+                f"Green: Validated Leads | Orange: Experimental Leads | Red Trace: Reconstructed Waveform"
+            )
         cv2.putText(banner, banner_text, (10, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (30, 30, 30), 1, cv2.LINE_AA)
 
         combined = np.vstack([banner, overlay_img])
@@ -190,7 +205,15 @@ class ECGDigitizerPipeline:
 
         # Initialize deep digitizer if trained checkpoint is present
         self.deep_digitizer = None
-        ckpt_candidate = Path(checkpoint_path or "models/ecg_digitizer_unet.pt")
+        if checkpoint_path is not None:
+            ckpt_candidate = Path(checkpoint_path)
+        else:
+            candidates = [
+                Path("models/ecg_digitizer_unet_all12lead.pt"),
+                Path("models/ecg_digitizer_unet.pt"),
+            ]
+            ckpt_candidate = next((p for p in candidates if p.is_file()), candidates[-1])
+
         if ckpt_candidate.is_file():
             try:
                 from ecg_digitization.inference.deep_digitizer import DeepCropDigitizer
@@ -254,7 +277,10 @@ class ECGDigitizerPipeline:
                 continue
 
             expected_baseline_y = crop_color.shape[0] / 2.0
-            is_trained = lead_name in ("II", "V1", "II_RHYTHM")
+            if self.deep_digitizer is not None:
+                is_trained = lead_name in self.deep_digitizer.supported_leads
+            else:
+                is_trained = lead_name in ("II", "V1", "II_RHYTHM")
 
             # Route based on extractor mode and lead scope
             if use_deep and (mode == "deep" or (mode == "hybrid" and is_trained)):

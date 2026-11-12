@@ -232,9 +232,58 @@
 
 ---
 
-## Current Status: PROJECT FULLY DELIVERED & ACADEMICALLY READY
-- **Complete Application Operational**: FastAPI backend + 4-tab Biomedical Engineering Workstation.
-- **Trained Deep Learning Model Operational**: 2D ResNet-U-Net (`models/ecg_digitizer_unet.pt`, 8,121,015 bytes) achieving best val Pearson $r = 0.9971$, RMSE $= 0.0179\text{ mV}$.
-- **Comprehensive Validation Provenance**: Real Kaggle beat evaluation across 6 pathology classes + synthetic 12-lead PTB-XL end-to-end benchmark ($r \ge 0.9597$).
-- **Test Suite**: 114 passed tests, 0 failures, 86% coverage.
-- **Academic Readiness**: Aligned with JIIT ECE Major Project Synopsis and Mid-Viva Presentation specifications.
+---
+
+## Session 8: Mac Migration, All-12-Lead Model Training & End-to-End System Delivery (12–13 Nov 2026)
+- [x] **New Mac Environment Audit & Discovery**:
+  - Validated Python 3.14.7 within active `.venv` on macOS arm64.
+  - PyTorch 2.15.0 built with native Metal Performance Shaders (MPS) acceleration (`torch.backends.mps.is_available() == True`).
+  - Confirmed Kaggle CLI installed and authentication working cleanly without secrets exposure.
+  - Discovered raw datasets:
+    - PTB-XL (3.2 GB): `data/raw/ptb-xl/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/` (21,837 records, `records100/`, `records500/`, `ptbxl_database.csv`, `scp_statements.csv`).
+    - ECG Image Data (1.1 GB): `data/raw/ecg-image-data/ECG_Image_data/` (`train/` and `test/` for classes `F, M, N, Q, S, V`).
+  - Populated `data/interim/ptbxl_sample/` with initial records (`00001_lr` – `00099_lr`).
+- [x] **All-12-Lead Training Pipeline** (`scripts/train_all12lead_digitizer.py`):
+  - Engineered `All12LeadPairedDataset` with balanced sampling across all 12 standard clinical leads:
+    `I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6`.
+  - Patient-safe split enforcement: PTB-XL Folds 1–8 for training (17,441 records), Fold 9 for validation (2,193 records), Fold 10 held-out quarantine (2,203 records).
+  - Executed MPS-accelerated training run:
+    - 4,800 paired training crops across all 12 leads per epoch.
+    - Warm-started from existing checkpoint `models/ecg_digitizer_unet.pt`.
+    - Best validation Pearson correlation $r = 0.9782$, RMSE $= 0.0503\text{ mV}$.
+    - Active checkpoint: `models/ecg_digitizer_unet_all12lead.pt` (8,121,711 bytes).
+    - Preserved legacy checkpoint: `models/ecg_digitizer_unet.pt` (8,121,015 bytes) and backup `models/ecg_digitizer_unet.pt.bak`.
+- [x] **Pipeline & Service Inference Upgrades**:
+  - `src/ecg_digitization/inference/deep_digitizer.py`: `DeepCropDigitizer` automatically resolves `ecg_digitizer_unet_all12lead.pt` as primary checkpoint and marks all 12 leads + rhythm strip as supported.
+  - `src/ecg_digitization/pipeline/digitizer.py`: Tags all 12 leads as `validated_lead`.
+  - `src/ecg_digitization/service/app.py`: `/api/status` dynamically reports active checkpoint and all-12-lead validation status; fallback search for PTB-XL samples in raw dataset paths; removed prominent classifier badges.
+  - `src/ecg_digitization/service/workstation_html.py`: Updated academic notices, dropdown selectors, and metric tables to confirm all 12 leads are trained and validated.
+- [x] **Three-Scenario Verification (`scripts/verify_3_scenarios.py`)**:
+  - **Scenario A (Paired Synthetic 12-Lead Sheet):**
+    - Digitized all 12 leads and continuous rhythm strip from PTB-XL record `00001_lr`.
+    - Mean Pearson $r = 0.8456$, Mean RMSE $= 0.1305\text{ mV}$.
+    - Strong precordial lead correlations: Lead V1 ($r = 0.9581$), V5 ($r = 0.9297$), V6 ($r = 0.9100$), II_RHYTHM ($r = 0.8159$).
+    - Full outputs saved: CSV and annotated 12-lead bounding-box overlay in `data/interim/verification_scenario_a/`.
+  - **Scenario B (Real ECG Image from Kaggle ECG Image Data):**
+    - Digitized real image `N10007.png`.
+    - 100% trace confidence, executed cleanly.
+    - Verified scientific discipline: `is_calibration_reliable: False` reported because real image lacked calibration pulse. No ground-truth hallucination.
+    - Outputs saved to `data/interim/verification_scenario_b/`.
+  - **Scenario C (Single Lead Isolation):**
+    - Digitized real image `Q1.png` in `single_lead` mode.
+    - Exactly 1 lead extracted (Lead II).
+    - Missing leads (`I, III, aVR, aVL, aVF, V1-V6`) strictly NOT fabricated.
+    - Outputs saved to `data/interim/verification_scenario_c/`.
+  - Complete verification results saved in `data/interim/three_scenarios_verification_summary.json`.
+- [x] **Comprehensive Test Verification**:
+  - Unit test suite: **108/108 passed tests**, 0 failures, 82% codebase coverage.
+  - Added `tests/unit/test_all12lead_digitizer.py`: 6 tests validating 12-lead conformance, paired crop shapes, balanced sampling, checkpoint loading, end-to-end extraction, and single-lead non-fabrication.
+
+---
+
+## Current Status: ALL-12-LEAD WORKSTATION DELIVERED & FULLY OPERATIONAL
+- **Operating Environment:** macOS arm64, Python 3.14.7, PyTorch with Apple Silicon MPS.
+- **Active Model:** `models/ecg_digitizer_unet_all12lead.pt` (Val Mean $r = 0.9782$, RMSE $= 0.0503\text{ mV}$).
+- **Legacy Checkpoints Preserved:** `models/ecg_digitizer_unet.pt`, `models/ecg_digitizer_unet.pt.bak`.
+- **Scope Discipline:** Pure digitisation and physiological signal analysis workstation; disease classification explicitly out of scope.
+- **Test Suite:** 108 passed, 0 failed, 82% coverage.

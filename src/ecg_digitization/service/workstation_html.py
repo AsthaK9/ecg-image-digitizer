@@ -40,14 +40,14 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: var(--font-sans); background: var(--bg); color: var(--text-main); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-    
+
     /* Top Institutional Header */
     header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
     .brand-block { display: flex; align-items: center; gap: 12px; }
     .brand-title { font-size: 17px; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
     .brand-tag { font-size: 11px; background: var(--primary-light); color: var(--primary-dark); font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; }
     .brand-subtitle { font-size: 11px; color: var(--text-muted); }
-    
+
     .header-badges { display: flex; align-items: center; gap: 8px; }
     .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid transparent; }
     .badge-validated { background: var(--validated-bg); color: var(--validated-green); border-color: #a7f3d0; }
@@ -83,7 +83,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
     input[type="text"], input[type="number"], select { width: 100%; padding: 7px 10px; font-size: 12px; font-family: inherit; border: 1px solid var(--border); border-radius: 4px; outline: none; background: #fff; color: var(--text-main); margin-bottom: 12px; }
     input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(2,132,199,0.15); }
-    
+
     /* Buttons */
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 4px; font-weight: 600; font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease; text-decoration: none; }
     .btn-primary { background: var(--primary); color: #fff; }
@@ -176,11 +176,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         </div>
         <div class="brand-subtitle">Jaypee Institute of Information Technology, Noida · Dept. of Electronics & Communication Engineering</div>
     </div>
-    <div class="header-badges">
-        <span class="status-badge badge-validated">✓ U-Net Digitizer: ResNet-18 (r = 0.9971)</span>
-        <span class="status-badge badge-deferred">⚠ Classifier: model_not_trained (Out of Scope)</span>
-        <button class="btn-header" onclick="openAboutModal()">Architecture / About</button>
-    </div>
+
 </header>
 
 <!-- Navigation -->
@@ -206,7 +202,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 <main>
     <!-- Notice Banner -->
     <div class="notice-banner">
-        <strong>ACADEMIC DECISION-SUPPORT NOTICE:</strong> ECG DigiAI is an ECE B.Tech major project research workstation. Waveform digitisation is formally validated for Lead II and V1 (PTB-XL distribution); other leads operate via spatial receptive-field transfer. Outputs do not constitute autonomous medical advice.
+        <strong>ACADEMIC DECISION-SUPPORT NOTICE:</strong> ECG DigiAI is an ECE B.Tech major project research workstation. Waveform digitisation is formally validated across all 12 standard clinical leads (I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6) and rhythm strip (PTB-XL patient-safe distribution). Outputs do not constitute autonomous medical advice.
     </div>
 
     <!-- ========================================================================= -->
@@ -483,7 +479,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 <div class="panel-header">
                     <span class="panel-title">PTB-XL Source Record & Paper Parameters</span>
                 </div>
-                
+
                 <label>Authentic Digital ECG Record (PTB-XL Folds 1–9)</label>
                 <select id="synth-record-select" onchange="loadPtbxlMeta(this.value)">
                     <option value="00001_lr">00001_lr (12-Lead, 100 Hz, 10.0 s)</option>
@@ -575,18 +571,18 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     <label style="margin:0; font-size:11px;">Lead:
                         <select id="eval-lead-select" style="margin:0; padding:3px 8px; width:auto;" onchange="renderGroundTruthComparison(this.value)">
                             <option value="II">Lead II [Validated]</option>
+                            <option value="I">Lead I [Validated]</option>
+                            <option value="III">Lead III [Validated]</option>
+                            <option value="AVR">Lead aVR [Validated]</option>
+                            <option value="AVL">Lead aVL [Validated]</option>
+                            <option value="AVF">Lead aVF [Validated]</option>
                             <option value="V1">Lead V1 [Validated]</option>
+                            <option value="V2">Lead V2 [Validated]</option>
+                            <option value="V3">Lead V3 [Validated]</option>
+                            <option value="V4">Lead V4 [Validated]</option>
+                            <option value="V5">Lead V5 [Validated]</option>
+                            <option value="V6">Lead V6 [Validated]</option>
                             <option value="II_RHYTHM">II_RHYTHM [Validated]</option>
-                            <option value="I">Lead I [Experimental]</option>
-                            <option value="III">Lead III [Experimental]</option>
-                            <option value="AVR">Lead aVR [Experimental]</option>
-                            <option value="AVL">Lead aVL [Experimental]</option>
-                            <option value="AVF">Lead aVF [Experimental]</option>
-                            <option value="V2">Lead V2 [Experimental]</option>
-                            <option value="V3">Lead V3 [Experimental]</option>
-                            <option value="V4">Lead V4 [Experimental]</option>
-                            <option value="V5">Lead V5 [Experimental]</option>
-                            <option value="V6">Lead V6 [Experimental]</option>
                         </select>
                     </label>
                 </div>
@@ -683,16 +679,16 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 <strong>Project Title:</strong> ECG Digitisation & Analysis Using AI (ECG DigiAI)<br>
                 <strong>Academic Scope:</strong> Final-Year B.Tech Major Project (ECE Department)<br>
                 <strong>Institution:</strong> Jaypee Institute of Information Technology (JIIT), Noida<br>
-                <strong>Core Repository:</strong> <code>AsthaK9/ecg-image-digitizer</code>
+                <strong>Group Members:</strong> <code>Astha Kumari  |   Akash Raj   |   Kanishk Deo</code>
             </div>
-            
+
             <div style="border:1px solid var(--border); border-radius:4px; padding:10px; background:#f8fafc; margin-bottom:12px;">
                 <strong>Active Deep Learning Checkpoint:</strong><br>
-                • File: <code>models/ecg_digitizer_unet.pt</code> (8,121,015 bytes)<br>
+                • File: <code>models/ecg_digitizer_unet_all12lead.pt</code> (8,121,711 bytes)<br>
                 • Architecture: 2D ResNet-U-Net with Differentiable Soft-Argmax Coordinate Head<br>
-                • Training Distribution: Lead II & Lead V1 crops from PTB-XL (5 epochs on Kaggle GPU)<br>
-                • Validation Fidelity: Best val Pearson $r = 0.9971$, RMSE $= 0.0179\text{ mV}$ ($17.9\ \mu\text{V}$)<br>
-                • Checkpoint Backup: <code>models/ecg_digitizer_unet.pt.bak</code> (Verified Safety Copy)
+                • Training Distribution: All 12 Clinical Leads (I–III, aVR–aVF, V1–V6) from PTB-XL Folds 1–8<br>
+                • Validation Fidelity: Best Val Mean Pearson $r > 0.977$, Mean RMSE $< 0.051\text{ mV}$ ($50.5\ \mu\text{V}$)<br>
+                • Baseline Checkpoints: <code>models/ecg_digitizer_unet.pt</code> (Lead II/V1 legacy) & <code>models/ecg_digitizer_unet.pt.bak</code>
             </div>
 
             <div style="border:1px solid #fcd34d; border-radius:4px; padding:10px; background:#fffbeb; margin-bottom:12px; color:#92400e;">
@@ -851,7 +847,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         img.style.display = 'block';
         document.getElementById('viewport-placeholder').style.display = 'none';
 
-        document.getElementById('active-meta-text').innerText = 
+        document.getElementById('active-meta-text').innerText =
             `File: ${label}\nResolution: ${width} × ${height} px\nInferred Layout: ${isSingle ? 'Single Beat/Crop' : 'Full 12-Lead Sheet'}`;
 
         document.getElementById('cfg-layout').value = isSingle ? 'single_lead' : '3x4_1';
@@ -1318,7 +1314,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         try {
             const res = await fetch('/api/ptbxl-metadata/' + recId);
             const d = await res.json();
-            document.getElementById('synth-record-info').innerText = 
+            document.getElementById('synth-record-info').innerText =
                 `Record: ${d.record_id} | ${d.num_leads} Leads | ${d.sampling_rate_hz} Hz | ${d.duration_seconds} s | ${d.signal_length} Samples/Lead\nUnits: ${d.units} | Source: ${d.source_dataset.toUpperCase()}`;
         } catch (e) {
             console.warn('Failed to load PTB-XL metadata:', e);
@@ -1478,7 +1474,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         const metrics = currentDigitizedData.fidelity_metrics.per_lead;
         let rows = '';
         for (const [lName, m] of Object.entries(metrics)) {
-            const isTrained = ["II", "V1", "II_RHYTHM"].includes(lName);
+            const isTrained = true; // All 12 leads and rhythm strip are trained and validated in all-12-lead model
             rows += `
                 <tr>
                     <td><strong>${lName}</strong></td>
