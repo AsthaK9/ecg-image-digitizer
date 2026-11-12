@@ -1,0 +1,200 @@
+{
+  "model_architecture": "ECGDigitizerUNet (ResNet-18 U-Net + Differentiable Soft-Argmax)",
+  "training_scope": "All 12 Standard Clinical Leads + Rhythm Strip",
+  "supported_leads": [
+    "I",
+    "II",
+    "III",
+    "AVR",
+    "AVL",
+    "AVF",
+    "V1",
+    "V2",
+    "V3",
+    "V4",
+    "V5",
+    "V6",
+    "II_RHYTHM"
+  ],
+  "total_training_duration_s": 9.95,
+  "device": "mps",
+  "best_val_mean_pearson_r": 0.9961,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.0241,
+      "val_mean_pearson_r": 0.9961,
+      "val_mean_rmse_mv": 0.0213,
+      "per_lead": {
+        "I": {
+          "pearson_r": 0.9984,
+          "rmse_mv": 0.0123,
+          "snr_db": 20.68,
+          "completeness": 1.0
+        },
+        "II": {
+          "pearson_r": 0.9991,
+          "rmse_mv": 0.0131,
+          "snr_db": 25.53,
+          "completeness": 1.0
+        },
+        "III": {
+          "pearson_r": 0.9992,
+          "rmse_mv": 0.0119,
+          "snr_db": 25.45,
+          "completeness": 1.0
+        },
+        "AVR": {
+          "pearson_r": 0.999,
+          "rmse_mv": 0.0116,
+          "snr_db": 23.97,
+          "completeness": 1.0
+        },
+        "AVL": {
+          "pearson_r": 0.999,
+          "rmse_mv": 0.012,
+          "snr_db": 23.57,
+          "completeness": 1.0
+        },
+        "AVF": {
+          "pearson_r": 0.9997,
+          "rmse_mv": 0.0117,
+          "snr_db": 28.44,
+          "completeness": 1.0
+        },
+        "V1": {
+          "pearson_r": 0.9994,
+          "rmse_mv": 0.0106,
+          "snr_db": 23.17,
+          "completeness": 1.0
+        },
+        "V2": {
+          "pearson_r": 0.9754,
+          "rmse_mv": 0.0859,
+          "snr_db": 11.35,
+          "completeness": 1.0
+        },
+        "V3": {
+          "pearson_r": 0.9865,
+          "rmse_mv": 0.0501,
+          "snr_db": 14.22,
+          "completeness": 1.0
+        },
+        "V4": {
+          "pearson_r": 0.999,
+          "rmse_mv": 0.0142,
+          "snr_db": 23.08,
+          "completeness": 1.0
+        },
+        "V5": {
+          "pearson_r": 0.9991,
+          "rmse_mv": 0.0122,
+          "snr_db": 22.85,
+          "completeness": 1.0
+        },
+        "V6": {
+          "pearson_r": 0.9993,
+          "rmse_mv": 0.0105,
+          "snr_db": 24.02,
+          "completeness": 1.0
+        }
+      }
+    }
+  ],
+  "final_per_lead_metrics": {
+    "I": {
+      "pearson_r": 0.9984,
+      "rmse_mv": 0.0123,
+      "snr_db": 20.68,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "II": {
+      "pearson_r": 0.9991,
+      "rmse_mv": 0.0131,
+      "snr_db": 25.53,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "III": {
+      "pearson_r": 0.9992,
+      "rmse_mv": 0.0119,
+      "snr_db": 25.45,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "AVR": {
+      "pearson_r": 0.999,
+      "rmse_mv": 0.0116,
+      "snr_db": 23.97,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "AVL": {
+      "pearson_r": 0.999,
+      "rmse_mv": 0.012,
+      "snr_db": 23.57,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "AVF": {
+      "pearson_r": 0.9997,
+      "rmse_mv": 0.0117,
+      "snr_db": 28.44,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "V1": {
+      "pearson_r": 0.9994,
+      "rmse_mv": 0.0106,
+      "snr_db": 23.17,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "V2": {
+      "pearson_r": 0.9754,
+      "rmse_mv": 0.0859,
+      "snr_db": 11.35,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "V3": {
+      "pearson_r": 0.9865,
+      "rmse_mv": 0.0501,
+      "snr_db": 14.22,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "V4": {
+      "pearson_r": 0.999,
+      "rmse_mv": 0.0142,
+      "snr_db": 23.08,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "V5": {
+      "pearson_r": 0.9991,
+      "rmse_mv": 0.0122,
+      "snr_db": 22.85,
+      "completeness": 1.0,
+      "num_samples": 512
+    },
+    "V6": {
+      "pearson_r": 0.9993,
+      "rmse_mv": 0.0105,
+      "snr_db": 24.02,
+      "completeness": 1.0,
+      "num_samples": 512
+    }
+  },
+  "split_provenance": {
+    "source_dataset": "PTB-XL v1.0.1 (PhysioNet)",
+    "train_folds": "1-8",
+    "val_fold": "9",
+    "test_fold": "10 (Strictly held-out, zero patient leakage)",
+    "num_train_records_used": 4,
+    "num_val_records_used": 2,
+    "num_train_crops": 48,
+    "num_val_crops": 24
+  }
+}

@@ -58,15 +58,16 @@ def render_lead_crop(lead_signal, crop_h=128, crop_w=256, pixels_per_mv=59.055, 
 
 
 class PairedCropDataset(Dataset):
-    def __init__(self, signals, crops_per_record=2, seed=42):
+    def __init__(self, signals, crops_per_record=12, seed=42):
         self.samples = []
         for i, sig in enumerate(signals):
             for crop_idx in range(crops_per_record):
-                # Pick Lead II (index 1) or V1 (index 6)
-                lead_i = 1 if crop_idx == 0 else 6
-                start = crop_idx * 250
+                # Balanced sampling across all 12 standard leads
+                lead_i = crop_idx % 12
+                col_i = lead_i // 3
+                start = col_i * 250
                 seg = sig[lead_i, start:start+250]
-                self.samples.append((seg, seed + i * 10 + crop_idx))
+                self.samples.append((seg, seed + i * 100 + crop_idx))
 
     def __len__(self):
         return len(self.samples)
@@ -236,8 +237,8 @@ def main():
     val_sigs, val_ids = load_record_signals(df[val_mask], dataset_root, max_records=500)
     print(f"Loaded train: {len(train_sigs)} unique records, val: {len(val_sigs)} unique records")
 
-    train_dataset = PairedCropDataset(train_sigs, crops_per_record=2, seed=42)
-    val_dataset = PairedCropDataset(val_sigs, crops_per_record=2, seed=123)
+    train_dataset = PairedCropDataset(train_sigs, crops_per_record=12, seed=42)
+    val_dataset = PairedCropDataset(val_sigs, crops_per_record=12, seed=123)
 
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=16, shuffle=False, num_workers=2, pin_memory=True)

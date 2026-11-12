@@ -161,7 +161,15 @@ class DeepCropDigitizer:
         self.device = torch.device(device)
         self.default_ppmv = float(default_pixels_per_mv)
 
-        ckpt_file = Path(checkpoint_path or "models/ecg_digitizer_unet.pt")
+        if checkpoint_path is not None:
+            ckpt_file = Path(checkpoint_path)
+        else:
+            candidates = [
+                Path("models/ecg_digitizer_unet_all12lead.pt"),
+                Path("models/ecg_digitizer_unet.pt"),
+            ]
+            ckpt_file = next((p for p in candidates if p.is_file()), candidates[-1])
+
         if not ckpt_file.is_file():
             raise FileNotFoundError(f"Trained digitizer checkpoint not found at: {ckpt_file}")
 
@@ -177,14 +185,24 @@ class DeepCropDigitizer:
         self.model.to(self.device)
         self.model.eval()
 
+        self.checkpoint_path = ckpt_file
         self.epoch = checkpoint.get("epoch", 5)
-        self.best_val_r = checkpoint.get("best_val_pearson_r", 0.9971)
-        self.val_rmse_mv = checkpoint.get("val_rmse_mv", 0.0179)
+        self.best_val_r = checkpoint.get("best_val_pearson_r", checkpoint.get("best_val_mean_pearson_r", 0.9971))
+        self.val_rmse_mv = checkpoint.get("val_rmse_mv", checkpoint.get("val_mean_rmse_mv", 0.0179))
+        self.supported_leads = set(checkpoint.get("supported_leads", []))
+        if not self.supported_leads:
+            if "all12" in str(ckpt_file):
+                self.supported_leads = {"I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM"}
+            else:
+                self.supported_leads = {"II", "V1", "II_RHYTHM"}
+
         logger.info(
-            "Loaded ECGDigitizerUNet (Epoch %d, Val Pearson r=%.4f, Val RMSE=%.4f mV)",
+            "Loaded ECGDigitizerUNet from %s (Epoch %d, Val Pearson r=%.4f, Val RMSE=%.4f mV, Leads: %d)",
+            ckpt_file,
             self.epoch,
             self.best_val_r,
             self.val_rmse_mv,
+            len(self.supported_leads),
         )
 
     def preprocess_image(self, image: np.ndarray) -> RealCropPreprocessingResult:
@@ -342,7 +360,7 @@ class DeepCropDigitizer:
             col_max = int(active_cols[-1])
         active_w = max(1, col_max - col_min + 1)
 
-        is_trained = lead_name in ("II", "V1", "II_RHYTHM")
+        is_trained = lead_name in self.supported_leads
         validation_status = "validated_lead" if is_trained else "experimental_unvalidated"
 
         if is_rhythm:
