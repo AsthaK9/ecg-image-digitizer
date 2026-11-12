@@ -40,14 +40,14 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: var(--font-sans); background: var(--bg); color: var(--text-main); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-
+    
     /* Top Institutional Header */
     header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
     .brand-block { display: flex; align-items: center; gap: 12px; }
     .brand-title { font-size: 17px; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
     .brand-tag { font-size: 11px; background: var(--primary-light); color: var(--primary-dark); font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; }
     .brand-subtitle { font-size: 11px; color: var(--text-muted); }
-
+    
     .header-badges { display: flex; align-items: center; gap: 8px; }
     .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid transparent; }
     .badge-validated { background: var(--validated-bg); color: var(--validated-green); border-color: #a7f3d0; }
@@ -83,7 +83,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
     input[type="text"], input[type="number"], select { width: 100%; padding: 7px 10px; font-size: 12px; font-family: inherit; border: 1px solid var(--border); border-radius: 4px; outline: none; background: #fff; color: var(--text-main); margin-bottom: 12px; }
     input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(2,132,199,0.15); }
-
+    
     /* Buttons */
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 4px; font-weight: 600; font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease; text-decoration: none; }
     .btn-primary { background: var(--primary); color: #fff; }
@@ -176,7 +176,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         </div>
         <div class="brand-subtitle">Jaypee Institute of Information Technology, Noida · Dept. of Electronics & Communication Engineering</div>
     </div>
-
+    
 </header>
 
 <!-- Navigation -->
@@ -479,7 +479,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 <div class="panel-header">
                     <span class="panel-title">PTB-XL Source Record & Paper Parameters</span>
                 </div>
-
+                
                 <label>Authentic Digital ECG Record (PTB-XL Folds 1–9)</label>
                 <select id="synth-record-select" onchange="loadPtbxlMeta(this.value)">
                     <option value="00001_lr">00001_lr (12-Lead, 100 Hz, 10.0 s)</option>
@@ -681,7 +681,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 <strong>Institution:</strong> Jaypee Institute of Information Technology (JIIT), Noida<br>
                 <strong>Group Members:</strong> <code>Astha Kumari  |   Akash Raj   |   Kanishk Deo</code>
             </div>
-
+            
             <div style="border:1px solid var(--border); border-radius:4px; padding:10px; background:#f8fafc; margin-bottom:12px;">
                 <strong>Active Deep Learning Checkpoint:</strong><br>
                 • File: <code>models/ecg_digitizer_unet_all12lead.pt</code> (8,121,711 bytes)<br>
@@ -766,7 +766,9 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const synthBox = document.getElementById('synth-viewport-box');
             const synthImg = synthBox.querySelector('img');
             if (synthImg) {
-                setWorkbenchImage(synthImg.src, `Synthetic Sheet (PTB-XL ${currentRecordId})`, 1650, 1275, false);
+                const w = synthImg.naturalWidth || 1654;
+                const h = synthImg.naturalHeight || 1240;
+                setWorkbenchImage(synthImg.src, `Synthetic Sheet (PTB-XL ${currentRecordId})`, w, h, false);
             } else {
                 document.getElementById('active-meta-text').innerText = 'No synthetic sheet rendered yet. Generate one in Section 03.';
             }
@@ -847,7 +849,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         img.style.display = 'block';
         document.getElementById('viewport-placeholder').style.display = 'none';
 
-        document.getElementById('active-meta-text').innerText =
+        document.getElementById('active-meta-text').innerText = 
             `File: ${label}\nResolution: ${width} × ${height} px\nInferred Layout: ${isSingle ? 'Single Beat/Crop' : 'Full 12-Lead Sheet'}`;
 
         document.getElementById('cfg-layout').value = isSingle ? 'single_lead' : '3x4_1';
@@ -914,9 +916,19 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             // Set default view to Diagnostic Sheet Overlay
             switchImageView('overlay');
 
-            // Show completion banner
+            // Show completion banner with honest calibration and lead provenance status
             const leadCount = Object.keys(data.leads || {}).length;
-            document.getElementById('digitize-summary-msg').innerText = `${leadCount} lead(s) successfully extracted and calibrated. Reconstructed digital waveforms ready in Lead Explorer.`;
+            if (leadCount === 1) {
+                if (data.is_calibration_reliable) {
+                    document.getElementById('digitize-summary-msg').innerText = `1 lead extracted (Lead II / Calibrated). 11 standard leads unavailable.`;
+                } else {
+                    document.getElementById('digitize-summary-msg').innerText = `1 lead extracted (Lead II / Nominal mV Estimates — Uncalibrated). 11 standard leads unavailable.`;
+                }
+            } else if (data.is_calibration_reliable) {
+                document.getElementById('digitize-summary-msg').innerText = `${leadCount} leads successfully extracted and calibrated (100 Hz / Physical mV). Reconstructed digital waveforms ready in Lead Explorer.`;
+            } else {
+                document.getElementById('digitize-summary-msg').innerText = `${leadCount} leads extracted (Nominal mV estimates — Uncalibrated Input). Reconstructed digital waveforms ready in Lead Explorer.`;
+            }
             document.getElementById('digitize-success-banner').style.display = 'flex';
 
         } catch (err) {
@@ -1086,7 +1098,10 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         if (selectedCard) selectedCard.classList.add('active');
 
         const leadObj = currentDigitizedData.leads[leadName];
-        document.getElementById('large-viewer-title').innerText = `LEAD ${leadName} — Calibrated Waveform Inspection`;
+        const calLabel = (leadObj.is_calibration_reliable && currentDigitizedData.is_calibration_reliable)
+            ? 'Calibrated Waveform Inspection'
+            : 'Uncalibrated Waveform Inspection (Nominal mV Estimates)';
+        document.getElementById('large-viewer-title').innerText = `LEAD ${leadName} — ${calLabel}`;
         document.getElementById('large-viewer-scope').innerText = leadObj.is_trained_lead
             ? '✓ VALIDATED (TRAINED RESNET-U-NET DISTRIBUTION)'
             : '⚠ EXPERIMENTAL (ZERO-SHOT RECEPTIVE-FIELD TRANSFER)';
@@ -1208,7 +1223,28 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             });
         }
 
-        // 4. Draw Playback Head Sweep Cursor
+        // 4. Draw Interval Selection Highlight
+        if (selectionStartSample !== null && selectionEndSample !== null && selectionStartSample !== selectionEndSample) {
+            const minS = Math.min(selectionStartSample, selectionEndSample);
+            const maxS = Math.max(selectionStartSample, selectionEndSample);
+            const x1 = (minS / (numPts - 1)) * (w - 40) + 20;
+            const x2 = (maxS / (numPts - 1)) * (w - 40) + 20;
+            ctx.fillStyle = 'rgba(2, 132, 199, 0.18)';
+            ctx.fillRect(x1, 0, x2 - x1, h);
+            ctx.strokeStyle = '#0284c7';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x1, 0, x2 - x1, h);
+
+            // Interval measurement banner text
+            const dtSec = Math.abs(times[maxS] - times[minS]);
+            const dtMs = Math.round(dtSec * 1000);
+            const eqBpm = dtSec > 0 ? Math.round(60 / dtSec) : 0;
+            ctx.fillStyle = '#0369a1';
+            ctx.font = '600 12px sans-serif';
+            ctx.fillText(`Selected Interval: Δt = ${dtMs} ms | ${eqBpm} bpm equivalent`, x1 + 4, 20);
+        }
+
+        // 5. Draw Playback Head Sweep Cursor
         if (maxIndex < numPts && maxIndex > 0) {
             const sweepX = (maxIndex / (numPts - 1)) * (w - 40) + 20;
             ctx.strokeStyle = '#0284c7';
@@ -1219,7 +1255,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             ctx.stroke();
         }
 
-        // 5. Draw Interactive Inspection Cursor Guide Lines
+        // 6. Draw Interactive Inspection Cursor Guide Lines
         if (cursorX !== null) {
             const effectiveX = Math.max(20, Math.min(w - 20, cursorX));
             const frac = (effectiveX - 20) / (w - 40);
@@ -1260,17 +1296,56 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         }
     }
 
-    // Canvas Mouse Interaction for Coordinates
+    // Canvas Mouse Interaction for Coordinates & Drag-to-Select Interval
+    let isCanvasDragging = false;
+    let canvasDragStartX = null;
     const ecgCanvas = document.getElementById('ecg-canvas');
     if (ecgCanvas) {
+        ecgCanvas.addEventListener('mousedown', (e) => {
+            const rect = ecgCanvas.getBoundingClientRect();
+            const scaleX = ecgCanvas.width / rect.width;
+            canvasDragStartX = (e.clientX - rect.left) * scaleX;
+            isCanvasDragging = true;
+            if (currentDigitizedData && currentDigitizedData.leads && currentDigitizedData.leads[activeLeadName]) {
+                const leadObj = currentDigitizedData.leads[activeLeadName];
+                const numPts = leadObj.voltage_mv.length;
+                const frac = Math.max(0, Math.min(1, (canvasDragStartX - 20) / (ecgCanvas.width - 40)));
+                selectionStartSample = Math.round(frac * (numPts - 1));
+                selectionEndSample = selectionStartSample;
+            }
+            renderECGCanvas(canvasDragStartX);
+        });
+
         ecgCanvas.addEventListener('mousemove', (e) => {
             const rect = ecgCanvas.getBoundingClientRect();
             const scaleX = ecgCanvas.width / rect.width;
             const x = (e.clientX - rect.left) * scaleX;
+            if (isCanvasDragging && currentDigitizedData && currentDigitizedData.leads && currentDigitizedData.leads[activeLeadName]) {
+                const leadObj = currentDigitizedData.leads[activeLeadName];
+                const numPts = leadObj.voltage_mv.length;
+                const frac = Math.max(0, Math.min(1, (x - 20) / (ecgCanvas.width - 40)));
+                selectionEndSample = Math.round(frac * (numPts - 1));
+            }
             renderECGCanvas(x);
         });
-        ecgCanvas.addEventListener('mouseleave', () => {
+
+        window.addEventListener('mouseup', () => {
+            if (isCanvasDragging) {
+                isCanvasDragging = false;
+                renderECGCanvas(null);
+            }
+        });
+
+        ecgCanvas.addEventListener('dblclick', () => {
+            selectionStartSample = null;
+            selectionEndSample = null;
             renderECGCanvas(null);
+        });
+
+        ecgCanvas.addEventListener('mouseleave', () => {
+            if (!isCanvasDragging) {
+                renderECGCanvas(null);
+            }
         });
     }
 
@@ -1314,7 +1389,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         try {
             const res = await fetch('/api/ptbxl-metadata/' + recId);
             const d = await res.json();
-            document.getElementById('synth-record-info').innerText =
+            document.getElementById('synth-record-info').innerText = 
                 `Record: ${d.record_id} | ${d.num_leads} Leads | ${d.sampling_rate_hz} Hz | ${d.duration_seconds} s | ${d.signal_length} Samples/Lead\nUnits: ${d.units} | Source: ${d.source_dataset.toUpperCase()}`;
         } catch (e) {
             console.warn('Failed to load PTB-XL metadata:', e);

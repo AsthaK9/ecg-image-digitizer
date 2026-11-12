@@ -135,12 +135,20 @@ class ECGRhythmAnalyzer:
         std_rr = float(np.std(rr_seconds))
         bpm = float(60.0 / mean_rr) if mean_rr > 0 else 0.0
 
-        # Rhythm regularity (coefficient of variation)
-        cv_rr = std_rr / mean_rr if mean_rr > 0 else 0.0
-        is_regular = cv_rr < 0.20
-        if not is_regular:
-            warnings.append(f"Irregular RR intervals detected (CV={cv_rr:.2f}).")
-            findings.append("Irregular rhythm pattern observed")
+        # Rhythm regularity: requires at least 4 RR intervals (>= 5 peaks) for meaningful statistical assessment
+        if len(rr_seconds) >= 4:
+            cv_rr = std_rr / mean_rr if mean_rr > 0 else 0.0
+            is_regular = cv_rr < 0.20
+            if not is_regular:
+                warnings.append(f"Irregular RR intervals detected (CV={cv_rr:.2f}).")
+                findings.append("Irregular rhythm pattern observed")
+            else:
+                findings.append("Regular rhythm pattern")
+        else:
+            # Short segment: insufficient beats for statistical rhythm regularity determination
+            is_regular = True
+            warnings.append(f"Short signal segment ({num_peaks} R-peaks): rhythm regularity assessment requires >= 5 beats.")
+            findings.append("Short recording duration (limited rhythm assessment)")
 
         # 4. Clinical Bradycardia / Tachycardia Rules
         if bpm < 60.0:
@@ -150,7 +158,12 @@ class ECGRhythmAnalyzer:
         else:
             findings.append(f"Normal Heart Rate ({bpm:.1f} bpm)")
 
-        quality = "good" if (is_regular and 40.0 <= bpm <= 180.0) else "acceptable"
+        if len(rr_seconds) < 4:
+            quality = "acceptable"
+        elif is_regular and (40.0 <= bpm <= 180.0):
+            quality = "good"
+        else:
+            quality = "acceptable"
 
         return RhythmAnalysisResult(
             lead_analyzed=lead_name,

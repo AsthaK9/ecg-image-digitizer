@@ -75,9 +75,21 @@ def enhance_contrast(gray: np.ndarray, clip_limit: float = 2.0, tile_grid_size: 
 
 
 def estimate_skew_angle(img_gray: np.ndarray, max_angle_deg: float = 15.0) -> float:
-    """Estimates skew angle of grid lines or page margins using the Hough line transform."""
-    edges = cv2.Canny(img_gray, 50, 150, apertureSize=3)
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=80, maxLineGap=10)
+    """Estimates skew angle of grid lines or page margins using the Hough line transform.
+    
+    Returns the angle in degrees by which the image is tilted clockwise.
+    A positive angle indicates clockwise tilt.
+    """
+    # Use horizontal morphological gradient to enhance horizontal grid lines over vertical QRS spikes
+    horiz_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 1))
+    grad = cv2.morphologyEx(img_gray, cv2.MORPH_GRADIENT, horiz_kernel)
+    edges = cv2.Canny(grad, 40, 120, apertureSize=3)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=80, minLineLength=60, maxLineGap=15)
+
+    if lines is None or len(lines) == 0:
+        # Fallback to standard Canny
+        edges = cv2.Canny(img_gray, 50, 150, apertureSize=3)
+        lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=80, maxLineGap=10)
 
     if lines is None or len(lines) == 0:
         return 0.0
@@ -90,7 +102,7 @@ def estimate_skew_angle(img_gray: np.ndarray, max_angle_deg: float = 15.0) -> fl
         if abs(dx) < 1e-4:
             continue
         angle_deg = np.degrees(np.arctan2(dy, dx))
-        # Keep horizontal-ish lines within [-max_angle, max_angle]
+        # Keep horizontal lines within [-max_angle, max_angle]
         if abs(angle_deg) <= max_angle_deg:
             angles.append(angle_deg)
         elif abs(angle_deg - 90.0) <= max_angle_deg:
@@ -101,17 +113,26 @@ def estimate_skew_angle(img_gray: np.ndarray, max_angle_deg: float = 15.0) -> fl
     if not angles:
         return 0.0
 
-    return float(np.median(angles))
+    median_angle = float(np.median(angles))
+    # Threshold gate: do not apply deskew to images that are already aligned within 0.2 deg
+    if abs(median_angle) < 0.2:
+        return 0.0
+
+    return median_angle
 
 
 def deskew_image(img: np.ndarray, angle_deg: float, border_value: Tuple[int, int, int] = (255, 255, 255)) -> np.ndarray:
-    """Rotates image by -angle_deg around its center to correct skew."""
-    if abs(angle_deg) < 0.05:
+    """Rotates image to correct skew.
+    
+    A positive angle_deg indicates clockwise tilt; in OpenCV getRotationMatrix2D,
+    a positive angle rotates counter-clockwise, which correctly cancels out the clockwise tilt.
+    """
+    if abs(angle_deg) < 0.1:
         return img
 
     h, w = img.shape[:2]
     center = (w / 2.0, h / 2.0)
-    rot_mat = cv2.getRotationMatrix2D(center, -angle_deg, 1.0)
+    rot_mat = cv2.getRotationMatrix2D(center, angle_deg, 1.0)
     bv = border_value if img.ndim == 3 else border_value[0]
 
     return cv2.warpAffine(
@@ -124,43 +145,67 @@ def deskew_image(img: np.ndarray, angle_deg: float, border_value: Tuple[int, int
     )
 
 
-def suppress_grid(img_bgr: np.ndarray) -> np.ndarray:
-    """Suppresses colored paper grid lines (pink/red/orange) while keeping black trace ink.
-
-    Uses a dual approach:
-    1. Red channel extraction: Pink/red grid lines reflect strongly in the Red channel,
-       making the grid blend into the white background, while the black trace remains dark.
-    2. HSV color gating: Any high-saturation reddish pixels are pushed to white (255).
-    """
-    b, g, r = cv2.split(img_bgr)
-
-    # In standard pink/red ECG paper, the red channel has minimal grid contrast.
-    # The green channel has the highest contrast for pink grid.
-    # We can also detect colored pixels via HSV.
+def detect_grid_presence(img_bgr: np.ndarray) -> bool:
+    """Detects if a colored (pink/red/orange) clinical paper grid is present."""
+    if img_bgr.ndim == 2:
+        return False
     hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    hue = hsv[:, :, 0]
     sat = hsv[:, :, 1]
-
-    # Mask of colored grid pixels (moderate saturation, non-black)
     val = hsv[:, :, 2]
-    is_grid = (sat > 25) & (val > 100)
+    # Pink/red grid in HSV: hue near 0 or 180, moderate saturation, high brightness
+    pink_grid_mask = ((hue < 25) | (hue > 155)) & (sat > 25) & (val > 140)
+    pct_pink = float(np.mean(pink_grid_mask) * 100.0)
+    return pct_pink > 1.0
 
-    # Output grayscale: prefer red channel, with colored grid pixels suppressed to 255
+
+def suppress_grid(img_bgr: np.ndarray) -> np.ndarray:
+    """Suppresses colored paper grid lines (pink/red/orange) while keeping black or colored trace ink.
+
+    1. Checks if a colored paper grid is present. If absent (e.g. digital plot or plain crop),
+       returns standard grayscale without risk of eroding trace lines.
+    2. When grid is present:
+       - Uses the Red channel where pink grid lines reflect strongly.
+       - Suppresses pink grid pixels while strictly protecting dark trace ink (val < 110)
+         and non-red colored traces.
+    """
+    if img_bgr.ndim == 2:
+        return img_bgr.copy()
+
+    has_grid = detect_grid_presence(img_bgr)
+    if not has_grid:
+        # No colored grid: return grayscale directly to preserve waveform completely
+        return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+    b, g, r = cv2.split(img_bgr)
+    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    hue = hsv[:, :, 0]
+    sat = hsv[:, :, 1]
+    val = hsv[:, :, 2]
+
+    # Grid pixels: reddish/pinkish hue, moderate saturation, and MUST be bright (val >= 110)
+    # Dark pixels (val < 110) are NEVER grid lines — they are ECG waveform ink!
+    is_pink_grid = ((hue < 25) | (hue > 155)) & (sat > 25) & (val >= 110)
+
+    # In addition, check that red channel is significantly brighter than green/blue
+    is_red_dominant = (r.astype(np.int16) - g.astype(np.int16) > 15) & (r.astype(np.int16) - b.astype(np.int16) > 15)
+    grid_mask = is_pink_grid & is_red_dominant
+
     suppressed = r.copy()
-    suppressed[is_grid] = 255
-
+    suppressed[grid_mask] = 255
     return suppressed
 
 
 def binarize_trace(img_gray: np.ndarray, block_size: int = 15, c: int = 5) -> np.ndarray:
     """Binarizes the ECG trace into a foreground mask (255 = trace, 0 = background).
 
-    Combines adaptive thresholding with Otsu thresholding for robustness against
-    non-uniform lighting.
+    Uses adaptive Gaussian thresholding with contrast gating and area-based noise filtering.
+    Preserves continuous, thin 1-pixel waveform lines without morphological erosion.
     """
-    # Invert so trace is bright (trace is dark in input)
+    # Invert so trace is bright (background is dark)
     inv = cv2.bitwise_not(img_gray)
 
-    # Adaptive threshold
+    # Adaptive Gaussian threshold
     if block_size % 2 == 0:
         block_size += 1
     adapt = cv2.adaptiveThreshold(
@@ -172,15 +217,18 @@ def binarize_trace(img_gray: np.ndarray, block_size: int = 15, c: int = 5) -> np
         c,
     )
 
-    # Otsu threshold on inverted image
-    _, otsu = cv2.threshold(inv, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # Contrast gating: pixel must differ by at least 20 levels from pure background
+    contrast_mask = (inv > 20).astype(np.uint8) * 255
+    combined = cv2.bitwise_and(adapt, contrast_mask)
 
-    # Combine: keep pixels supported by both or strong local contrast
-    combined = cv2.bitwise_and(adapt, otsu)
-
-    # Remove isolated 1-pixel noise and connect small breaks
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    cleaned = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel)
+    # Remove only isolated 1-2 pixel salt-and-pepper noise specks via connected components
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(combined, connectivity=8)
+    cleaned = np.zeros_like(combined)
+    for i in range(1, num_labels):
+        area = stats[i, cv2.CC_STAT_AREA]
+        # Keep any connected component of size >= 3 (preserves thin continuous traces)
+        if area >= 3:
+            cleaned[labels == i] = 255
 
     return cleaned
 

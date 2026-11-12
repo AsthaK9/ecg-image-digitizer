@@ -52,8 +52,8 @@ class ECGLayoutConfig:
     speed_mm_s: float = 25.0            # Standard ECG paper speed (25 mm/s)
     gain_mm_mv: float = 10.0            # Standard clinical gain (10 mm/mV)
     line_thickness: int = 2             # Waveform pen trace thickness in pixels
-    grid_minor_color: Tuple[int, int, int] = (255, 215, 215)  # BGR light pink
-    grid_major_color: Tuple[int, int, int] = (235, 140, 140)  # BGR darker pink
+    grid_minor_color: Tuple[int, int, int] = (215, 215, 255)  # BGR light pink (R=255, G=215, B=215)
+    grid_major_color: Tuple[int, int, int] = (140, 140, 235)  # BGR darker pink/red (R=235, G=140, B=140)
     trace_color: Tuple[int, int, int] = (15, 15, 25)          # Near-black ink
     include_calibration_pulse: bool = True
 
@@ -150,9 +150,46 @@ class SyntheticECGGenerator:
         lead_baselines: Dict[str, int] = {}
         exact_lead_signals: Dict[str, np.ndarray] = {}
 
-        # Optional: Draw 1 mV calibration pulse at start of each row
-        pulse_width_px = int(round(5.0 * self.pixels_per_mm))  # 5 mm = 0.2s
-        pulse_height_px = int(round(1.0 * self.pixels_per_mv)) # 1 mV
+        # Draw Metadata Header at the top margin
+        rec_title = f"PTB-XL Record: {source_rec_id} | 25 mm/s, 10 mm/mV | 150 DPI | {fs:.0f} Hz | Clinical 12-Lead Diagnostic ECG"
+        cv2.putText(
+            clean_img,
+            rec_title,
+            (margin_x, max(22, margin_y - 12)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (40, 40, 40),
+            1,
+            cv2.LINE_AA,
+        )
+
+        # Draw standard 1 mV calibration pulse at start of each row if enabled
+        # Keeps a clean >= 10px separation before margin_x so the pulse does not touch Column 0
+        if self.layout.include_calibration_pulse:
+            pulse_w = int(round(5.0 * self.pixels_per_mm))   # 5 mm = 0.2s
+            pulse_h = int(round(1.0 * self.pixels_per_mv))   # 1 mV = 10 mm
+            pulse_in = int(round(1.5 * self.pixels_per_mm))  # 1.5 mm baseline lead-in
+            p_end_x = margin_x - 12
+            p_start_x = p_end_x - pulse_in - pulse_w - pulse_in
+            if p_start_x >= 2:
+                for r_idx in range(4):
+                    base_y = margin_y + r_idx * row_h + row_h // 2
+                    pulse_pts = np.array([
+                        [p_start_x, base_y],
+                        [p_start_x + pulse_in, base_y],
+                        [p_start_x + pulse_in, base_y - pulse_h],
+                        [p_start_x + pulse_in + pulse_w, base_y - pulse_h],
+                        [p_start_x + pulse_in + pulse_w, base_y],
+                        [p_end_x, base_y],
+                    ], dtype=np.int32)
+                    cv2.polylines(
+                        clean_img,
+                        [pulse_pts],
+                        isClosed=False,
+                        color=self.layout.trace_color,
+                        thickness=self.layout.line_thickness,
+                        lineType=cv2.LINE_AA,
+                    )
 
         # 3. Draw 3x4 Main Grid Leads
         for col_idx, col_leads in enumerate(self.LAYOUT_3X4_COLUMNS):
@@ -172,15 +209,15 @@ class SyntheticECGGenerator:
                 lead_bboxes[lead_name] = (x_box_start, y_box_start, x_box_end, y_box_end)
                 lead_baselines[lead_name] = baseline_y
 
-                # Draw Lead Label
+                # Draw Lead Label with high-contrast legibility
                 cv2.putText(
                     clean_img,
                     lead_name,
-                    (x_box_start + 5, y_box_start + 18),
+                    (x_box_start + 6, y_box_start + 24),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.45,
-                    (50, 50, 50),
-                    1,
+                    0.65,
+                    (40, 40, 40),
+                    2,
                     cv2.LINE_AA,
                 )
 
@@ -237,11 +274,11 @@ class SyntheticECGGenerator:
         cv2.putText(
             clean_img,
             "II (Rhythm Strip)",
-            (margin_x + 5, y_rhythm_start + 18),
+            (margin_x + 6, y_rhythm_start + 24),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            (50, 50, 50),
-            1,
+            0.65,
+            (40, 40, 40),
+            2,
             cv2.LINE_AA,
         )
 

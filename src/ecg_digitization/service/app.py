@@ -131,6 +131,12 @@ def load_ptbxl_sample(record_id: str):
 
 
 # --- API Routes ---
+@app.get("/health")
+def health_check() -> Dict[str, str]:
+    """Simple health check endpoint."""
+    return {"status": "healthy", "service": "ecg-digiai"}
+
+
 @app.get("/api/status")
 def get_status() -> Dict[str, Any]:
     """Returns platform status, dataset readiness, and model training state."""
@@ -288,6 +294,13 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
             img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Failed to decode base64 image: {exc}")
+        # Preserve exact ground-truth pairing if rec_id corresponds to a known session or sample record
+        if rec_id in session_records and "ground_truth_signal" in session_records[rec_id]:
+            gt_sig = session_records[rec_id]["ground_truth_signal"]
+        else:
+            sig = load_ptbxl_sample(rec_id)
+            if sig is not None:
+                gt_sig = sig.values
     elif rec_id in session_records and "synthetic_result" in session_records[rec_id]:
         img = session_records[rec_id]["synthetic_result"].image
         gt_sig = session_records[rec_id]["ground_truth_signal"]
@@ -315,9 +328,12 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
             detail="Image is blank or empty. Please provide a valid ECG image.",
         )
 
-    # Automatic single-lead layout inference for small crops if requested or defaulted
+    # Automatic layout inference: only override if auto is specified or if image is unambiguously a small beat crop
     layout_to_use = req.layout_hint
-    if layout_to_use == "auto" or (img.shape[1] < 800 and layout_to_use == "3x4_1" and req.image_base64 is not None):
+    if layout_to_use == "auto":
+        layout_to_use = "single_lead" if img.shape[1] < 700 else "3x4_1"
+    elif layout_to_use == "3x4_1" and img.shape[1] < 500:
+        # Image is physically incapable of holding 4 columns
         layout_to_use = "single_lead"
 
     is_cal_reliable = req.is_calibration_reliable if req.is_calibration_reliable is not None else (layout_to_use != "single_lead")

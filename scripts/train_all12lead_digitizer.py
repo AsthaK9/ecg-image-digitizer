@@ -71,13 +71,13 @@ def render_lead_crop(
     px_5mm = 5.0 * px_1mm
 
     for x in np.arange(0, crop_w, px_1mm):
-        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (255, 215, 215), 1)
+        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (215, 215, 255), 1)
     for y in np.arange(0, crop_h, px_1mm):
-        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (255, 215, 215), 1)
+        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (215, 215, 255), 1)
     for x in np.arange(0, crop_w, px_5mm):
-        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (235, 140, 140), 1)
+        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (140, 140, 235), 1)
     for y in np.arange(0, crop_h, px_5mm):
-        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (235, 140, 140), 1)
+        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (140, 140, 235), 1)
 
     baseline_y = float(crop_h / 2.0)
     trace_mask = np.zeros((crop_h, crop_w), dtype=np.uint8)

@@ -98,9 +98,12 @@ class KaggleManager:
         self._ensure_env_credentials()
         cli_path = shutil.which("kaggle")
         if not cli_path:
-            venv_kaggle = self.workspace_dir / ".venv" / "Scripts" / "kaggle.exe"
-            if venv_kaggle.is_file():
-                cli_path = str(venv_kaggle)
+            venv_posix = self.workspace_dir / ".venv" / "bin" / "kaggle"
+            venv_win = self.workspace_dir / ".venv" / "Scripts" / "kaggle.exe"
+            if venv_posix.is_file():
+                cli_path = str(venv_posix)
+            elif venv_win.is_file():
+                cli_path = str(venv_win)
 
         if not cli_path:
             return KaggleAuthStatus(

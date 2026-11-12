@@ -350,14 +350,20 @@ class DeepCropDigitizer:
         if w == 0 or h == 0:
             raise ValueError(f"Empty lead crop provided: shape {lead_crop.shape}")
 
-        # Scan active trace columns using binary mask
-        active_cols = np.where(binary_crop.sum(axis=0) > 0)[0] if binary_crop.size > 0 else np.array([])
-        if len(active_cols) < 5:
+        # Scan active trace columns using binary mask within the waveform baseline corridor,
+        # excluding top text label area (y < 45) and outer 4px margin
+        base_y_local = int(round(expected_baseline_y))
+        y_c1 = max(45, base_y_local - 75)
+        y_c2 = min(h, base_y_local + 75)
+        corridor = binary_crop[y_c1:y_c2, :] if y_c2 > y_c1 else binary_crop
+
+        active_in_corridor = np.where(corridor[:, 5:].sum(axis=0) > 0)[0] if corridor.size > 0 else np.array([])
+        if len(active_in_corridor) < 5:
             # Fallback to full width if trace mask is sparse
             col_min, col_max = 0, w - 1
         else:
-            col_min = int(active_cols[0])
-            col_max = int(active_cols[-1])
+            col_min = int(active_in_corridor[0]) + 5
+            col_max = int(active_in_corridor[-1]) + 5
         active_w = max(1, col_max - col_min + 1)
 
         is_trained = lead_name in self.supported_leads

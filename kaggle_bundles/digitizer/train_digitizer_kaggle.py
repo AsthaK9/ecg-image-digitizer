@@ -21,17 +21,17 @@ def render_lead_crop(lead_signal, crop_h=128, crop_w=256, pixels_per_mv=59.055, 
     rng = np.random.RandomState(seed)
     canvas = np.full((crop_h, crop_w, 3), 252, dtype=np.uint8)
 
-    # Draw grid lines
+    # Draw grid lines (BGR pink grid: Blue=215, Green=215, Red=255 minor; Blue=140, Green=140, Red=235 major)
     px_1mm = 150 / 25.4  # ~5.9 px
     px_5mm = 5.0 * px_1mm
     for x in np.arange(0, crop_w, px_1mm):
-        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (255, 215, 215), 1)
+        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (215, 215, 255), 1)
     for y in np.arange(0, crop_h, px_1mm):
-        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (255, 215, 215), 1)
+        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (215, 215, 255), 1)
     for x in np.arange(0, crop_w, px_5mm):
-        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (235, 140, 140), 1)
+        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (140, 140, 235), 1)
     for y in np.arange(0, crop_h, px_5mm):
-        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (235, 140, 140), 1)
+        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (140, 140, 235), 1)
 
     baseline_y = float(crop_h / 2.0)
     trace_mask = np.zeros((crop_h, crop_w), dtype=np.uint8)
@@ -301,17 +301,28 @@ def main():
 
         if val_r > best_val_r:
             best_val_r = val_r
-            torch.save({
+            ckpt = {
                 "model_state_dict": model.state_dict(),
                 "config": {"in_channels": 3, "base_channels": 32, "temperature": 1.0, "default_pixels_per_mv": 59.055},
                 "epoch": epoch,
                 "best_val_pearson_r": best_val_r,
                 "val_rmse_mv": val_rmse,
-            }, "ecg_digitizer_unet.pt")
-            print(f"--> Saved best digitizer checkpoint (Pearson r={best_val_r:.4f}) to ecg_digitizer_unet.pt")
+                "supported_leads": ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM"],
+            }
+            torch.save(ckpt, "ecg_digitizer_unet_all12lead.pt")
+            torch.save(ckpt, "ecg_digitizer_unet.pt")
+            print(f"--> Saved best digitizer checkpoint (Pearson r={best_val_r:.4f}) to ecg_digitizer_unet_all12lead.pt")
 
+    metrics_dict = {
+        "best_val_pearson_r": round(best_val_r, 4),
+        "val_rmse_mv": round(val_rmse, 4),
+        "supported_leads": ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM"],
+        "epochs": metrics_history,
+    }
+    with open("digitizer_all12lead_metrics.json", "w") as f:
+        json.dump(metrics_dict, f, indent=2)
     with open("digitizer_metrics.json", "w") as f:
-        json.dump({"best_val_pearson_r": round(best_val_r, 4), "epochs": metrics_history}, f, indent=2)
+        json.dump(metrics_dict, f, indent=2)
 
     print("=== Digitizer Training Complete. Artifacts saved to working directory. ===")
 
