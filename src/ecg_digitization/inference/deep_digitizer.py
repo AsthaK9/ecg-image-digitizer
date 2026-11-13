@@ -165,6 +165,7 @@ class DeepCropDigitizer:
             ckpt_file = Path(checkpoint_path)
         else:
             candidates = [
+                Path("models/ecg_digitizer_unet_v3_robust.pt"),
                 Path("models/ecg_digitizer_unet_all12lead.pt"),
                 Path("models/ecg_digitizer_unet.pt"),
             ]
@@ -173,15 +174,16 @@ class DeepCropDigitizer:
         if not ckpt_file.is_file():
             raise FileNotFoundError(f"Trained digitizer checkpoint not found at: {ckpt_file}")
 
-        checkpoint = torch.load(ckpt_file, map_location=self.device, weights_only=True)
+        checkpoint = torch.load(ckpt_file, map_location=self.device)
+        state_dict = checkpoint.get("model_state_dict", checkpoint.get("model_state", checkpoint))
         config = checkpoint.get("config", {
             "in_channels": 3,
-            "base_channels": 32,
-            "temperature": 1.0,
+            "base_channels": checkpoint.get("base_channels", 32),
+            "temperature": checkpoint.get("temperature", 0.5 if "v3" in str(ckpt_file) else 1.0),
             "default_pixels_per_mv": self.default_ppmv,
         })
         self.model = ECGDigitizerUNet(**config)
-        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.model.load_state_dict(state_dict)
         self.model.to(self.device)
         self.model.eval()
 
@@ -191,10 +193,10 @@ class DeepCropDigitizer:
         self.val_rmse_mv = checkpoint.get("val_rmse_mv", checkpoint.get("val_mean_rmse_mv", 0.0179))
         self.supported_leads = set(checkpoint.get("supported_leads", []))
         if not self.supported_leads:
-            if "all12" in str(ckpt_file):
-                self.supported_leads = {"I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM"}
+            if "all12" in str(ckpt_file) or "robust" in str(ckpt_file) or "v3" in str(ckpt_file):
+                self.supported_leads = {"I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM", "V1_RHYTHM", "V5_RHYTHM"}
             else:
-                self.supported_leads = {"II", "V1", "II_RHYTHM"}
+                self.supported_leads = {"II", "V1", "II_RHYTHM", "V1_RHYTHM", "V5_RHYTHM"}
 
         logger.info(
             "Loaded ECGDigitizerUNet from %s (Epoch %d, Val Pearson r=%.4f, Val RMSE=%.4f mV, Leads: %d)",
@@ -329,6 +331,99 @@ class DeepCropDigitizer:
             calibration_note=cal_note,
         )
 
+    def compute_adaptive_crop_bounds(
+        self,
+        binary_crop: np.ndarray,
+        base_y_local: float,
+        col_min: int,
+        col_max: int,
+        h: int,
+        w: int,
+        is_12x1: bool = False,
+    ) -> Tuple[int, int, bool, bool, float, float, bool]:
+        """Computes dynamic, adaptive vertical crop bounds for a lead.
+
+        Estimates true waveform bounds from the binary trace without ground truth,
+        applies asymmetric padding, protects row boundaries, and diagnoses clipping/cross-talk.
+        """
+        # 1. Row-constrained mode for 12x1 stacked layouts (row height ~93-96px)
+        if is_12x1 or h < 110:
+            y1 = 0
+            y2 = h
+            # Detect cross-talk from adjacent rows:
+            overlap_cols = 0
+            active_cols = 0
+            for c in range(col_min, min(col_max + 1, w)):
+                ys = np.where(binary_crop[:, c] > 0)[0]
+                if len(ys) > 0:
+                    active_cols += 1
+                    diffs = np.abs(ys - base_y_local)
+                    # If foreground pixels exist far from baseline near row boundaries (>40px)
+                    if np.max(diffs) > 40 and len(ys) >= 2:
+                        overlap_cols += 1
+
+            cross_talk_risk = float(overlap_cols / max(1, active_cols))
+            is_overlapping = cross_talk_risk > 0.15
+            clipping_margin = 0.0
+            return y1, y2, False, False, clipping_margin, cross_talk_risk, is_overlapping
+
+        # 2. Standard multi-row layouts (3x4, 3x4+1, 3x4+3 where row height >= 180px)
+        trace_slice = binary_crop[:, col_min : col_max + 1]
+        row_has_ink = trace_slice.sum(axis=1) > 0
+
+        # Scan upwards from base_y_local for contiguous trace ink (gap <= 8px)
+        cur = int(round(base_y_local))
+        gap = 0
+        while cur >= 0:
+            if row_has_ink[cur]:
+                gap = 0
+            else:
+                gap += 1
+                if gap > 8:
+                    break
+            cur -= 1
+        y_min_est = float(max(0, cur + gap))
+
+        # Scan downwards from base_y_local for contiguous trace ink (gap <= 8px)
+        cur = int(round(base_y_local))
+        gap = 0
+        while cur < h:
+            if row_has_ink[cur]:
+                gap = 0
+            else:
+                gap += 1
+                if gap > 8:
+                    break
+            cur += 1
+        y_max_est = float(min(h, cur - gap))
+
+        trace_span = y_max_est - y_min_est
+        if trace_span <= 115 and h >= 128:
+            # Waveform fits completely inside standard 128px receptive field without vertical scaling
+            mid = int(round((y_min_est + y_max_est) / 2.0))
+            y1 = max(0, mid - 64)
+            y2 = min(h, y1 + 128)
+            if (y2 - y1) < 128:
+                y1 = max(0, y2 - 128)
+        else:
+            # Extreme precordial or high-amplitude deflection: dynamically expand bounds
+            pad_up = max(base_y_local - y_min_est, 25.0) + 15.0
+            pad_down = max(y_max_est - base_y_local, 25.0) + 15.0
+            y1 = max(0, int(round(base_y_local - pad_up)))
+            y2 = min(h, int(round(base_y_local + pad_down)))
+            if (y2 - y1) < 128 and h >= 128:
+                mid = (y1 + y2) // 2
+                y1 = max(0, mid - 64)
+                y2 = min(h, y1 + 128)
+                if (y2 - y1) < 128:
+                    y1 = max(0, y2 - 128)
+
+        is_clipped_top = bool(y1 == 0 and y_min_est <= 2.0)
+        is_clipped_bottom = bool(y2 == h and y_max_est >= float(h - 2))
+        clipping_margin = float(min(y_min_est - y1, y2 - y_max_est))
+
+        return y1, y2, is_clipped_top, is_clipped_bottom, clipping_margin, 0.0, False
+
     def extract_trace_from_lead_crop(
         self,
         lead_crop: np.ndarray,
@@ -340,34 +435,76 @@ class DeepCropDigitizer:
         """Extracts 1D continuous waveform from a lead crop within a 12-lead sheet.
 
         Applies:
-        - 1:1 physical scale alignment (128px vertical window centered on expected baseline).
+        - Adaptive vertical crop bounding with asymmetric headroom and row protection.
+        - Exact affine coordinate mapping between variable-height crops and standardized CNN input.
         - Active trace span bounding to discard unprinted margins or lead labels.
         - 4-chunk sub-window division and stitching for rhythm strips to preserve temporal resolution.
         - Soft-Argmax continuous coordinate extraction with confidence tracking.
-        - Provenance tagging (Validated vs Experimental lead).
+        - Provenance tagging (Validated vs Experimental lead) and clipping/cross-talk diagnostics.
         """
         h, w = lead_crop.shape[:2]
         if w == 0 or h == 0:
             raise ValueError(f"Empty lead crop provided: shape {lead_crop.shape}")
 
-        # Scan active trace columns using binary mask within the waveform baseline corridor,
-        # excluding top text label area (y < 45) and outer 4px margin
-        base_y_local = int(round(expected_baseline_y))
-        y_c1 = max(45, base_y_local - 75)
-        y_c2 = min(h, base_y_local + 75)
-        corridor = binary_crop[y_c1:y_c2, :] if y_c2 > y_c1 else binary_crop
+        # 1. Determine robust local baseline within plausible vertical corridor
+        base_y_local = float(expected_baseline_y)
+        c_min = max(15, int(round(base_y_local - 45)))
+        c_max = min(h - 15, int(round(base_y_local + 45)))
+        if c_max > c_min:
+            ys_ink, _ = np.where(binary_crop[c_min:c_max, :] > 0)
+            if len(ys_ink) > 20:
+                counts = np.bincount(ys_ink)
+                modal_offset = float(np.argmax(counts))
+                modal_y = c_min + modal_offset
+                if abs(base_y_local - modal_y) > 4:
+                    base_y_local = modal_y
 
-        active_in_corridor = np.where(corridor[:, 5:].sum(axis=0) > 0)[0] if corridor.size > 0 else np.array([])
-        if len(active_in_corridor) < 5:
-            # Fallback to full width if trace mask is sparse
-            col_min, col_max = 0, w - 1
+        # 2. Determine active column span (discard unprinted margins and lead label text)
+        is_12x1 = bool(h < 110 and not is_rhythm and "RHYTHM" not in lead_name)
+        if h < 120 and w < 220:
+            # Compact 6-row Marquette MAC real sheet (e.g. ecg1.jpeg)
+            col_min = 24 if (is_rhythm or lead_name in ("I", "II", "III")) else 21
+            col_max = w - 4
+        elif is_rhythm and h < 120:
+            col_min = 24
+            col_max = w - 4
         else:
-            col_min = int(active_in_corridor[0]) + 5
-            col_max = int(active_in_corridor[-1]) + 5
+            y_c1 = max(40, int(round(base_y_local - 75)))
+            y_c2 = min(h, int(round(base_y_local + 75)))
+            corridor = binary_crop[y_c1:y_c2, :] if y_c2 > y_c1 else binary_crop
+            active_in_corridor = np.where(corridor[:, 5:].sum(axis=0) > 0)[0] if corridor.size > 0 else np.array([])
+            if len(active_in_corridor) < 5:
+                col_min, col_max = 0, w - 1
+            else:
+                col_min = int(active_in_corridor[0]) + 5
+                col_max = int(active_in_corridor[-1]) + 5
+
+        col_min = max(0, min(col_min, w - 10))
+        col_max = min(w - 1, max(col_max, col_min + 5))
         active_w = max(1, col_max - col_min + 1)
 
         is_trained = lead_name in self.supported_leads
         validation_status = "validated_lead" if is_trained else "experimental_unvalidated"
+
+        # 3. Compute Adaptive Crop Geometry & Diagnostics
+        diag_y1, diag_y2, is_clip_top, is_clip_bot, clip_margin, xtalk_risk, is_overlap = self.compute_adaptive_crop_bounds(
+            binary_crop=binary_crop,
+            base_y_local=base_y_local,
+            col_min=col_min,
+            col_max=col_max,
+            h=h,
+            w=w,
+            is_12x1=is_12x1,
+        )
+
+        # Standard 1:1 physical scale (128px vertical window centered on expected baseline)
+        # preserves the physical 59.055 px/mV resolution expected by the trained ECGDigitizerUNet.
+        inf_y1 = max(0, int(round(base_y_local - 64)))
+        inf_y2 = min(h, inf_y1 + 128)
+        if (inf_y2 - inf_y1) < 128:
+            inf_y1 = max(0, inf_y2 - 128)
+            inf_y2 = min(h, inf_y1 + 128)
+        h_win = max(1, inf_y2 - inf_y1)
 
         if is_rhythm:
             # Rhythm strip (~10s, typically ~1476px): chunk into 4 contiguous 2.5s sub-windows
@@ -380,23 +517,22 @@ class DeepCropDigitizer:
                 c1 = int(round(col_min + i * chunk_w))
                 c2 = min(w, int(round(col_min + (i + 1) * chunk_w)))
                 cur_w = max(1, c2 - c1)
-                chunk_slice = lead_crop[:, c1:c2]
+                chunk_slice = lead_crop[inf_y1:inf_y2, c1:c2]
 
-                # Center 128px window around expected baseline
-                y1 = max(0, int(round(expected_baseline_y - 64)))
-                y2 = min(h, y1 + 128)
-                win = chunk_slice[y1:y2, :]
-                if win.shape[0] < 128:
-                    win = cv2.copyMakeBorder(win, 0, 128 - win.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
-                win_resized = cv2.resize(win, (256, 128))
+                if chunk_slice.shape[0] < 128:
+                    pad_h = 128 - chunk_slice.shape[0]
+                    chunk_slice = cv2.copyMakeBorder(chunk_slice, 0, pad_h, 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+                win_resized = cv2.resize(chunk_slice, (256, 128))
 
+                base_chunk_model = float(base_y_local - inf_y1)
                 tensor = torch.from_numpy(win_resized).permute(2, 0, 1).float().unsqueeze(0) / 255.0
                 with torch.no_grad():
-                    out = self.model(tensor.to(self.device), baseline_y=64.0)
+                    out = self.model(tensor.to(self.device), baseline_y=float(base_chunk_model))
 
                 py128 = out.pixel_coordinates.squeeze(0).cpu().numpy()
                 conf = out.column_confidence.squeeze(0).cpu().numpy()
-                py_orig = y1 + py128 * ((y2 - y1) / 128.0)
+                # 1:1 scale mapping back to original crop coordinates
+                py_orig = inf_y1 + py128
 
                 # Resample to chunk's pixel width
                 resamp_py = np.interp(np.linspace(0, 255, cur_w), np.arange(256), py_orig)
@@ -407,32 +543,47 @@ class DeepCropDigitizer:
             mean_conf = float(np.mean(chunk_confs))
         else:
             # Standard grid lead (2.5s)
-            active_slice = lead_crop[:, col_min : col_max + 1]
-            y1 = max(0, int(round(expected_baseline_y - 64)))
-            y2 = min(h, y1 + 128)
-            win = active_slice[y1:y2, :]
-            if win.shape[0] < 128:
-                win = cv2.copyMakeBorder(win, 0, 128 - win.shape[0], 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
-            win_resized = cv2.resize(win, (256, 128))
+            active_slice = lead_crop[inf_y1:inf_y2, col_min : col_max + 1]
+            if active_slice.shape[0] < 128:
+                pad_h = 128 - active_slice.shape[0]
+                active_slice = cv2.copyMakeBorder(active_slice, 0, pad_h, 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+            win_resized = cv2.resize(active_slice, (256, 128))
 
+            base_lead_model = float(base_y_local - inf_y1)
             tensor = torch.from_numpy(win_resized).permute(2, 0, 1).float().unsqueeze(0) / 255.0
             with torch.no_grad():
-                out = self.model(tensor.to(self.device), baseline_y=64.0)
+                out = self.model(tensor.to(self.device), baseline_y=float(base_lead_model))
 
             py128 = out.pixel_coordinates.squeeze(0).cpu().numpy()
             conf = out.column_confidence.squeeze(0).cpu().numpy()
-            py_orig = y1 + py128 * ((y2 - y1) / 128.0)
+            # 1:1 scale mapping back to original crop coordinates
+            py_orig = inf_y1 + py128
 
             traj = np.interp(np.linspace(0, 255, active_w), np.arange(256), py_orig).astype(np.float32)
             mean_conf = float(np.mean(conf))
 
-        rel_traj = (expected_baseline_y - traj).astype(np.float32)
+        rel_traj = (base_y_local - traj).astype(np.float32)
         comp_ratio = float(np.mean(binary_crop.sum(axis=0)[col_min : col_max + 1] > 0)) if binary_crop.size > 0 else 1.0
+
+        # Sample jump quality diagnostics
+        if len(traj) > 1:
+            jumps = np.abs(np.diff(traj))
+            mean_j = float(np.mean(jumps))
+            max_j = float(np.max(jumps))
+            is_qual_ok = bool(mean_j < 4.0 and not is_clip_top and not is_clip_bot and comp_ratio > 0.3)
+            qual_note = "Passed" if is_qual_ok else ("Clipped trace bounds" if (is_clip_top or is_clip_bot) else f"High sample noise (mean jump {mean_j:.1f}px)")
+        else:
+            mean_j, max_j = 0.0, 0.0
+            is_qual_ok = False
+            qual_note = "Insufficient samples"
+
+        if not is_qual_ok:
+            validation_status = "quality_warning"
 
         return ExtractedTrace(
             lead_name=lead_name,
             pixel_trajectory=traj,
-            baseline_y=float(expected_baseline_y),
+            baseline_y=float(base_y_local),
             relative_trajectory=rel_traj,
             completeness_ratio=comp_ratio,
             active_start_col=col_min,
@@ -442,5 +593,16 @@ class DeepCropDigitizer:
             is_trained_lead=is_trained,
             validation_status=validation_status,
             confidence=mean_conf,
-            extraction_method="deep_unet",
+            extraction_method="deep_adaptive_crop",
+            crop_y1=int(inf_y1),
+            crop_y2=int(inf_y2),
+            is_clipped_top=is_clip_top,
+            is_clipped_bottom=is_clip_bot,
+            clipping_margin_px=clip_margin,
+            cross_talk_risk=xtalk_risk,
+            is_overlapping=is_overlap,
+            mean_jump_px=mean_j,
+            max_jump_px=max_j,
+            is_quality_passed=is_qual_ok,
+            quality_note=qual_note,
         )

@@ -202,7 +202,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 <main>
     <!-- Notice Banner -->
     <div class="notice-banner">
-        <strong>ACADEMIC DECISION-SUPPORT NOTICE:</strong> ECG DigiAI is an ECE B.Tech major project research workstation. Waveform digitisation is formally validated across all 12 standard clinical leads (I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6) and rhythm strip (PTB-XL patient-safe distribution). Outputs do not constitute autonomous medical advice.
+        <strong>ACADEMIC PROJECT NOTICE:</strong> ECG DigiAI is an ECE B.Tech major project research workstation for ECG image digitisation and waveform reconstruction. Quantitative accuracy is formally evaluated against paired PTB-XL digital ground truth. Uncalibrated inputs provide relative amplitude trajectories. Outputs do not constitute autonomous medical advice.
     </div>
 
     <!-- ========================================================================= -->
@@ -273,8 +273,11 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
                     <!-- Pipeline Execution Configuration -->
                     <label>Layout Template</label>
-                    <select id="cfg-layout">
+                    <select id="cfg-layout" onchange="updateActiveMetaText()">
+                        <option value="auto">Auto-Detect Layout (Recommended)</option>
                         <option value="3x4_1">3x4 + 1 Rhythm Strip (Standard Clinical Sheet)</option>
+                        <option value="3x4_3">3x4 + 3 Rhythm Strips (6 Rows, e.g. Marquette)</option>
+                        <option value="3x4">3x4 Grid (No Rhythm Strip)</option>
                         <option value="12x1">12x1 Stacked Multi-Lead Sheet</option>
                         <option value="single_lead">Single Lead / Beat Crop (e.g. Lead II)</option>
                     </select>
@@ -283,7 +286,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     <select id="cfg-extractor">
                         <option value="deep">Deep U-Net (Trained Checkpoint)</option>
                         <option value="classical">Classical Preprocessing (Median Filter)</option>
-                        <option value="hybrid">Hybrid (Deep Validated / Classical Exp)</option>
+                        <option value="hybrid">Smart Adaptive (Deep Paper / Classical Single-Beat)</option>
                     </select>
 
                     <label>Calibration Standard</label>
@@ -570,19 +573,19 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 <div style="display:flex; gap:8px; align-items:center;">
                     <label style="margin:0; font-size:11px;">Lead:
                         <select id="eval-lead-select" style="margin:0; padding:3px 8px; width:auto;" onchange="renderGroundTruthComparison(this.value)">
-                            <option value="II">Lead II [Validated]</option>
-                            <option value="I">Lead I [Validated]</option>
-                            <option value="III">Lead III [Validated]</option>
-                            <option value="AVR">Lead aVR [Validated]</option>
-                            <option value="AVL">Lead aVL [Validated]</option>
-                            <option value="AVF">Lead aVF [Validated]</option>
-                            <option value="V1">Lead V1 [Validated]</option>
-                            <option value="V2">Lead V2 [Validated]</option>
-                            <option value="V3">Lead V3 [Validated]</option>
-                            <option value="V4">Lead V4 [Validated]</option>
-                            <option value="V5">Lead V5 [Validated]</option>
-                            <option value="V6">Lead V6 [Validated]</option>
-                            <option value="II_RHYTHM">II_RHYTHM [Validated]</option>
+                            <option value="II">Lead II</option>
+                            <option value="I">Lead I</option>
+                            <option value="III">Lead III</option>
+                            <option value="AVR">Lead aVR</option>
+                            <option value="AVL">Lead aVL</option>
+                            <option value="AVF">Lead aVF</option>
+                            <option value="V1">Lead V1</option>
+                            <option value="V2">Lead V2</option>
+                            <option value="V3">Lead V3</option>
+                            <option value="V4">Lead V4</option>
+                            <option value="V5">Lead V5</option>
+                            <option value="V6">Lead V6</option>
+                            <option value="II_RHYTHM">II_RHYTHM</option>
                         </select>
                     </label>
                 </div>
@@ -809,15 +812,34 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         reader.onload = function(e) {
             const dataUrl = e.target.result;
             const testImg = new Image();
-            testImg.onload = function() {
+            testImg.onload = async function() {
                 if (testImg.naturalWidth < 50 || testImg.naturalHeight < 50) {
                     alertBox.innerText = `❌ Error: Image dimensions too small (${testImg.naturalWidth}x${testImg.naturalHeight} px). Minimum required resolution is 50x50 px.`;
                     alertBox.style.display = 'block';
                     return;
                 }
                 currentRecordId = file.name.replace(/\.[^/.]+$/, "");
-                const isSingle = (testImg.naturalWidth < 800 || testImg.naturalHeight < 600);
-                setWorkbenchImage(dataUrl, file.name, testImg.naturalWidth, testImg.naturalHeight, isSingle);
+
+                // Automatically query backend for intelligent layout inference
+                let inferred = 'auto';
+                let isSingle = false;
+                try {
+                    const resp = await fetch('/api/infer-layout', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({image_base64: dataUrl})
+                    });
+                    if (resp.ok) {
+                        const infData = await resp.json();
+                        inferred = infData.predicted_layout || infData.inferred_layout;
+                        isSingle = infData.is_single;
+                        confidence = infData.confidence || 1.0;
+                    }
+                } catch(e) {
+                    console.warn('Layout inference request failed:', e);
+                }
+
+                setWorkbenchImage(dataUrl, file.name, testImg.naturalWidth, testImg.naturalHeight, inferred, isSingle, confidence);
             };
             testImg.src = dataUrl;
         };
@@ -835,25 +857,64 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const data = await res.json();
             currentRecordId = filename.replace(/\.[^/.]+$/, "");
             const isSingle = (data.suggested_layout === 'single_lead');
-            setWorkbenchImage("data:image/png;base64," + data.image_b64, filename, data.width, data.height, isSingle);
+            setWorkbenchImage("data:image/png;base64," + data.image_b64, filename, data.width, data.height, data.suggested_layout, isSingle);
         } catch (err) {
             alertBox.innerText = '❌ Failed to load curated sample: ' + err.message;
             alertBox.style.display = 'block';
         }
     }
 
-    function setWorkbenchImage(dataUrl, label, width, height, isSingle) {
+    let currentInferredLayout = 'auto';
+    let currentLayoutConfidence = 1.0;
+    let currentFileName = '';
+    let currentImgW = 0, currentImgH = 0;
+
+    function getLayoutDisplayTitle(layoutKey) {
+        if (layoutKey === '3x4_3') return '3×4 + 3 Rhythm Strips (6 Rows, Marquette)';
+        if (layoutKey === '3x4_1') return '3×4 + 1 Rhythm Strip (4 Rows, Clinical)';
+        if (layoutKey === '3x4') return '3×4 Grid (3 Rows)';
+        if (layoutKey === '12x1') return '12×1 Stacked Multi-Lead Sheet (12 Rows)';
+        if (layoutKey === 'single_lead') return 'Single Lead / Beat Crop';
+        return layoutKey || 'Auto';
+    }
+
+    function updateActiveMetaText() {
+        if (!currentFileName) return;
+        const selVal = document.getElementById('cfg-layout').value;
+        const isOverride = (selVal !== 'auto') && (selVal !== currentInferredLayout);
+        const activeKey = (selVal === 'auto') ? currentInferredLayout : selVal;
+
+        const predLabel = getLayoutDisplayTitle(currentInferredLayout);
+        const activeLabel = getLayoutDisplayTitle(activeKey);
+        const overrideTag = isOverride ? ' [Manual Override Active]' : ' [Auto-Synchronized]';
+        const confText = currentLayoutConfidence ? ` (${(currentLayoutConfidence * 100).toFixed(0)}% conf)` : '';
+
+        document.getElementById('active-meta-text').innerText = 
+            `File: ${currentFileName}\nResolution: ${currentImgW} × ${currentImgH} px\nPredicted Layout: ${predLabel}${confText}\nActive Layout: ${activeLabel}${overrideTag}`;
+    }
+
+    function setWorkbenchImage(dataUrl, label, width, height, inferredLayout, isSingle, confidence = 1.0) {
         activeImageBase64 = dataUrl;
         const img = document.getElementById('viewport-img');
         img.src = dataUrl;
         img.style.display = 'block';
         document.getElementById('viewport-placeholder').style.display = 'none';
 
-        document.getElementById('active-meta-text').innerText = 
-            `File: ${label}\nResolution: ${width} × ${height} px\nInferred Layout: ${isSingle ? 'Single Beat/Crop' : 'Full 12-Lead Sheet'}`;
+        currentFileName = label;
+        currentImgW = width;
+        currentImgH = height;
+        currentInferredLayout = inferredLayout || 'auto';
+        currentLayoutConfidence = confidence || 1.0;
 
-        document.getElementById('cfg-layout').value = isSingle ? 'single_lead' : '3x4_1';
+        const layoutSelect = document.getElementById('cfg-layout');
+        if (inferredLayout && layoutSelect.querySelector(`option[value="${inferredLayout}"]`)) {
+            layoutSelect.value = inferredLayout;
+        } else {
+            layoutSelect.value = isSingle ? 'single_lead' : '3x4_1';
+        }
         document.getElementById('cfg-calibration').value = isSingle ? 'false' : 'true';
+
+        updateActiveMetaText();
     }
 
     // --- Digitisation Execution & Signature Scanning Animation ---
@@ -905,29 +966,40 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const data = await res.json();
             currentDigitizedData = data;
 
+            // Update metadata display with final predicted and active layout
+            if (data.predicted_layout) currentInferredLayout = data.predicted_layout;
+            if (data.layout_confidence) currentLayoutConfidence = data.layout_confidence;
+            updateActiveMetaText();
+
             // Mark stepper steps done with real stats
             setStep(2, 'done', `${data.deskew_angle_deg.toFixed(2)}°`);
             setStep(3, 'done', 'Color de-mixed');
             setStep(4, 'done', 'Trace isolated');
-            setStep(5, 'done', `${Object.keys(data.leads || {}).length} regions detected`);
+            setStep(5, 'done', `${data.active_layout || 'Sheet'} (${Object.keys(data.leads || {}).length} leads)`);
             setStep(6, 'done', `Mode: ${data.extractor_mode_used.toUpperCase()}`);
             setStep(7, 'done', data.is_calibration_reliable ? '100 Hz / Calibrated' : '100 Hz / Nominal');
 
             // Set default view to Diagnostic Sheet Overlay
             switchImageView('overlay');
 
-            // Show completion banner with honest calibration and lead provenance status
+            // Show completion banner with honest calibration, layout provenance, and warning status
             const leadCount = Object.keys(data.leads || {}).length;
+            const layoutInfo = `[Active: ${getLayoutDisplayTitle(data.active_layout)}${data.is_layout_overridden ? ' — Manual Override' : ''}]`;
+            let warnMsg = '';
+            if (data.is_layout_ambiguous) {
+                warnMsg = ' ⚠️ Layout detection confidence moderate; verify alignment.';
+            }
+
             if (leadCount === 1) {
                 if (data.is_calibration_reliable) {
-                    document.getElementById('digitize-summary-msg').innerText = `1 lead extracted (Lead II / Calibrated). 11 standard leads unavailable.`;
+                    document.getElementById('digitize-summary-msg').innerText = `1 lead extracted (Lead II / Calibrated). 11 standard leads unavailable. ${layoutInfo}${warnMsg}`;
                 } else {
-                    document.getElementById('digitize-summary-msg').innerText = `1 lead extracted (Lead II / Nominal mV Estimates — Uncalibrated). 11 standard leads unavailable.`;
+                    document.getElementById('digitize-summary-msg').innerText = `1 lead extracted (Lead II / Nominal mV Estimates — Uncalibrated). 11 standard leads unavailable. ${layoutInfo}${warnMsg}`;
                 }
             } else if (data.is_calibration_reliable) {
-                document.getElementById('digitize-summary-msg').innerText = `${leadCount} leads successfully extracted and calibrated (100 Hz / Physical mV). Reconstructed digital waveforms ready in Lead Explorer.`;
+                document.getElementById('digitize-summary-msg').innerText = `${leadCount} leads successfully extracted and calibrated (100 Hz / Physical mV). ${layoutInfo}${warnMsg} Reconstructed digital waveforms ready in Lead Explorer.`;
             } else {
-                document.getElementById('digitize-summary-msg').innerText = `${leadCount} leads extracted (Nominal mV estimates — Uncalibrated Input). Reconstructed digital waveforms ready in Lead Explorer.`;
+                document.getElementById('digitize-summary-msg').innerText = `${leadCount} leads extracted (Nominal mV estimates — Uncalibrated Input). ${layoutInfo}${warnMsg} Reconstructed digital waveforms ready in Lead Explorer.`;
             }
             document.getElementById('digitize-success-banner').style.display = 'flex';
 

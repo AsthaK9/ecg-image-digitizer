@@ -21,17 +21,38 @@ def render_lead_crop(lead_signal, crop_h=128, crop_w=256, pixels_per_mv=59.055, 
     rng = np.random.RandomState(seed)
     canvas = np.full((crop_h, crop_w, 3), 252, dtype=np.uint8)
 
-    # Draw grid lines (BGR pink grid: Blue=215, Green=215, Red=255 minor; Blue=140, Green=140, Red=235 major)
+    # 30% clean unaugmented distribution; 70% augmented
+    is_augmented = rng.rand() >= 0.30
+
+    # Draw grid lines (BGR pink grid: minor & major)
+    # Variable-contrast and faded grid styles under augmentation
+    if is_augmented and rng.rand() > 0.4:
+        # Faded or variable contrast grid
+        fade_factor = rng.uniform(0.3, 0.9)
+        minor_color = (
+            int(252 - (252 - 215) * fade_factor),
+            int(252 - (252 - 215) * fade_factor),
+            int(252 - (252 - 255) * fade_factor),
+        )
+        major_color = (
+            int(252 - (252 - 140) * fade_factor),
+            int(252 - (252 - 140) * fade_factor),
+            int(252 - (252 - 235) * fade_factor),
+        )
+    else:
+        minor_color = (215, 215, 255)
+        major_color = (140, 140, 235)
+
     px_1mm = 150 / 25.4  # ~5.9 px
     px_5mm = 5.0 * px_1mm
     for x in np.arange(0, crop_w, px_1mm):
-        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (215, 215, 255), 1)
+        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), minor_color, 1)
     for y in np.arange(0, crop_h, px_1mm):
-        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (215, 215, 255), 1)
+        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), minor_color, 1)
     for x in np.arange(0, crop_w, px_5mm):
-        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), (140, 140, 235), 1)
+        cv2.line(canvas, (int(round(x)), 0), (int(round(x)), crop_h), major_color, 1)
     for y in np.arange(0, crop_h, px_5mm):
-        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), (140, 140, 235), 1)
+        cv2.line(canvas, (0, int(round(y))), (crop_w, int(round(y))), major_color, 1)
 
     baseline_y = float(crop_h / 2.0)
     trace_mask = np.zeros((crop_h, crop_w), dtype=np.uint8)
@@ -45,10 +66,46 @@ def render_lead_crop(lead_signal, crop_h=128, crop_w=256, pixels_per_mv=59.055, 
     cv2.polylines(canvas, [pts], isClosed=False, color=(20, 20, 30), thickness=2, lineType=cv2.LINE_AA)
     cv2.polylines(trace_mask, [pts], isClosed=False, color=255, thickness=2, lineType=cv2.LINE_8)
 
-    # Optional augmentation: scanner sensor noise
-    if rng.rand() > 0.5:
-        noise = rng.normal(0, 3.0, canvas.shape).astype(np.float32)
-        canvas = np.clip(canvas.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+    if is_augmented:
+        # 1. Controlled small rotation (+/- 2.0 deg) with identical coordinate alignment
+        if rng.rand() > 0.4:
+            angle = rng.uniform(-2.0, 2.0)
+            M = cv2.getRotationMatrix2D((crop_w / 2.0, crop_h / 2.0), angle, 1.0)
+            canvas = cv2.warpAffine(canvas, M, (crop_w, crop_h), borderValue=(252, 252, 252))
+            trace_mask = cv2.warpAffine(trace_mask, M, (crop_w, crop_h), borderValue=0)
+            # Affine map ground truth coordinates
+            homo_pts = np.column_stack([np.arange(crop_w), y_coords, np.ones(crop_w)])
+            rot_pts = (M @ homo_pts.T).T
+            x_prime, y_prime = rot_pts[:, 0], rot_pts[:, 1]
+            y_coords_rot = np.interp(np.arange(crop_w), x_prime, y_prime)
+            gt_resampled = (baseline_y - y_coords_rot) / pixels_per_mv
+
+        # 2. Illumination / shadow gradients
+        if rng.rand() > 0.4:
+            gx = np.linspace(rng.uniform(-25, 0), rng.uniform(0, 25), crop_w)
+            gy = np.linspace(rng.uniform(-25, 0), rng.uniform(0, 25), crop_h)
+            grad = gx[None, :] + gy[:, None]
+            canvas = np.clip(canvas.astype(np.float32) + grad[:, :, None], 0, 255).astype(np.uint8)
+
+        # 3. Optical blur (k in {1, 3})
+        if rng.rand() > 0.5:
+            k = rng.choice([1, 3])
+            if k == 3:
+                canvas = cv2.GaussianBlur(canvas, (3, 3), sigmaX=rng.uniform(0.5, 1.2))
+
+        # 4. Scanner Gaussian noise (sigma in [1.0, 4.5])
+        if rng.rand() > 0.4:
+            sigma = rng.uniform(1.0, 4.5)
+            noise = rng.normal(0, sigma, canvas.shape).astype(np.float32)
+            canvas = np.clip(canvas.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+
+        # 5. JPEG compression simulation (Q in [50, 90])
+        if rng.rand() > 0.4:
+            q = int(rng.uniform(50, 90))
+            _, enc = cv2.imencode('.jpg', canvas, [int(cv2.IMWRITE_JPEG_QUALITY), q])
+            decoded = cv2.imdecode(enc, cv2.IMREAD_COLOR)
+            if decoded is not None:
+                canvas = decoded
 
     img_tensor = torch.from_numpy(canvas).permute(2, 0, 1).float() / 255.0
     mask_tensor = (torch.from_numpy(trace_mask).unsqueeze(0).float() > 127).float()
@@ -307,16 +364,18 @@ def main():
                 "epoch": epoch,
                 "best_val_pearson_r": best_val_r,
                 "val_rmse_mv": val_rmse,
-                "supported_leads": ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM"],
+                "supported_leads": ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM", "V1_RHYTHM", "V5_RHYTHM"],
+                "trained_on": "kaggle_gpu",
             }
+            torch.save(ckpt, "ecg_digitizer_unet_kaggle_gpu.pt")
             torch.save(ckpt, "ecg_digitizer_unet_all12lead.pt")
-            torch.save(ckpt, "ecg_digitizer_unet.pt")
-            print(f"--> Saved best digitizer checkpoint (Pearson r={best_val_r:.4f}) to ecg_digitizer_unet_all12lead.pt")
+            print(f"--> Saved best digitizer checkpoint (Pearson r={best_val_r:.4f}) to ecg_digitizer_unet_kaggle_gpu.pt")
 
     metrics_dict = {
         "best_val_pearson_r": round(best_val_r, 4),
         "val_rmse_mv": round(val_rmse, 4),
-        "supported_leads": ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM"],
+        "supported_leads": ["I", "II", "III", "AVR", "AVL", "AVF", "V1", "V2", "V3", "V4", "V5", "V6", "II_RHYTHM", "V1_RHYTHM", "V5_RHYTHM"],
+        "trained_on": "kaggle_gpu",
         "epochs": metrics_history,
     }
     with open("digitizer_all12lead_metrics.json", "w") as f:

@@ -59,7 +59,33 @@ def test_lead_layout_detector() -> None:
     assert "I" in res.leads
     assert "II_RHYTHM" in res.leads
 
+    # Test 3x4_3 layout (6 rows with 3 rhythm leads)
+    res_3x4_3 = detector.detect_layout((540, 720, 3), layout_hint="3x4_3")
+    assert res_3x4_3.is_supported is True
+    assert len(res_3x4_3.leads) == 15
+    assert "V1_RHYTHM" in res_3x4_3.leads
+    assert "II_RHYTHM" in res_3x4_3.leads
+    assert "V5_RHYTHM" in res_3x4_3.leads
+
     # Test unsupported layout
     unsupported_res = detector.detect_layout(shape, layout_hint="unsupported_custom")
     assert unsupported_res.is_supported is False
     assert len(unsupported_res.warnings) > 0
+
+
+def test_infer_layout_on_attached_ecg1_and_synthetic() -> None:
+    import cv2
+    from pathlib import Path
+    detector = LeadLayoutDetector()
+
+    ecg1_path = Path("tests/fixtures/ecg1.jpeg")
+    if ecg1_path.is_file():
+        img = cv2.imread(str(ecg1_path))
+        inferred = detector.infer_layout(img)
+        assert inferred == "3x4_3", f"Expected 3x4_3 for ecg1.jpeg, got {inferred}"
+
+    synth_path = Path("data/interim/verification_scenario_a/00001_lr_synthetic_paper.png")
+    if synth_path.is_file():
+        img_s = cv2.imread(str(synth_path))
+        inferred_s = detector.infer_layout(img_s)
+        assert inferred_s == "3x4_1", f"Expected 3x4_1 for synthetic sheet, got {inferred_s}"

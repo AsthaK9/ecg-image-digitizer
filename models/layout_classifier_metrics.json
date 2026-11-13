@@ -1,0 +1,126 @@
+{
+  "model_architecture": "ECGLayoutCNN (Lightweight 2D ConvNet)",
+  "classes": [
+    "single_lead",
+    "3x4",
+    "3x4_1",
+    "3x4_3",
+    "12x1"
+  ],
+  "total_training_duration_s": 31.93,
+  "best_val_acc": 1.0,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.8291,
+      "train_acc": 0.7,
+      "val_loss": 3.3283,
+      "val_acc": 0.4,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 0.0,
+        "3x4_3": 0.0,
+        "12x1": 0.0
+      }
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.2591,
+      "train_acc": 0.94,
+      "val_loss": 1.1564,
+      "val_acc": 0.44,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 0.1,
+        "3x4_3": 0.0,
+        "12x1": 0.1
+      }
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.0994,
+      "train_acc": 0.9825,
+      "val_loss": 0.016,
+      "val_acc": 1.0,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 1.0,
+        "3x4_3": 1.0,
+        "12x1": 1.0
+      }
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.0676,
+      "train_acc": 0.9925,
+      "val_loss": 0.0165,
+      "val_acc": 1.0,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 1.0,
+        "3x4_3": 1.0,
+        "12x1": 1.0
+      }
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.0209,
+      "train_acc": 1.0,
+      "val_loss": 0.0046,
+      "val_acc": 1.0,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 1.0,
+        "3x4_3": 1.0,
+        "12x1": 1.0
+      }
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.0188,
+      "train_acc": 0.9975,
+      "val_loss": 0.0023,
+      "val_acc": 1.0,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 1.0,
+        "3x4_3": 1.0,
+        "12x1": 1.0
+      }
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.0104,
+      "train_acc": 0.9975,
+      "val_loss": 0.0025,
+      "val_acc": 1.0,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 1.0,
+        "3x4_3": 1.0,
+        "12x1": 1.0
+      }
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.0352,
+      "train_acc": 0.9875,
+      "val_loss": 0.0042,
+      "val_acc": 1.0,
+      "per_class_acc": {
+        "single_lead": 1.0,
+        "3x4": 1.0,
+        "3x4_1": 1.0,
+        "3x4_3": 1.0,
+        "12x1": 1.0
+      }
+    }
+  ]
+}

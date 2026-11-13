@@ -1,6 +1,6 @@
 {
-  "id": "asthak11111/ecg-digiai-unet-digitizer",
-  "title": "ECG DigiAI \u2014 U-Net Image Digitizer Training",
+  "id": "asthak11111/ecg-digiai-u-net-image-digitizer-training",
+  "title": "ECG DigiAI — U-Net Image Digitizer Training",
   "code_file": "train_digitizer_kaggle.py",
   "language": "python",
   "kernel_type": "script",

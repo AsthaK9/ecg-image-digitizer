@@ -141,11 +141,12 @@ def health_check() -> Dict[str, str]:
 def get_status() -> Dict[str, Any]:
     """Returns platform status, dataset readiness, and model training state."""
     auth_status = kaggle_manager.check_auth()
+    ckpt_v3 = Path("models/ecg_digitizer_unet_v3_robust.pt")
     ckpt_all12 = Path("models/ecg_digitizer_unet_all12lead.pt")
     ckpt_legacy = Path("models/ecg_digitizer_unet.pt")
-    active_ckpt = ckpt_all12 if ckpt_all12.is_file() else (ckpt_legacy if ckpt_legacy.is_file() else None)
+    active_ckpt = ckpt_v3 if ckpt_v3.is_file() else (ckpt_all12 if ckpt_all12.is_file() else (ckpt_legacy if ckpt_legacy.is_file() else None))
 
-    metrics_file = Path("models/digitizer_all12lead_metrics.json")
+    metrics_file = Path("models/digitizer_v3_robust_metrics.json") if ckpt_v3.is_file() else Path("models/digitizer_all12lead_metrics.json")
     all12_metrics = {}
     if metrics_file.is_file():
         try:
@@ -232,15 +233,46 @@ def get_sample_image(filename: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Could not read sample image.")
 
     h, w = img.shape[:2]
-    # Single-beat or small crops are flagged as single_lead with nominal calibration
-    is_single_crop = (w < 800 or h < 600)
+    suggested = digitizer_pipeline.lead_detector.infer_layout(img)
+    is_single_crop = (suggested == "single_lead")
     return {
         "filename": filename,
         "width": w,
         "height": h,
         "image_b64": encode_img_b64(img),
-        "suggested_layout": "single_lead" if is_single_crop else "3x4_1",
+        "suggested_layout": suggested,
         "is_calibration_reliable": not is_single_crop,
+    }
+
+
+@app.post("/api/infer-layout")
+def api_infer_layout(req: Dict[str, Any]) -> Dict[str, Any]:
+    """Infers ECG sheet layout from uploaded image using ink projection and geometry."""
+    b64 = req.get("image_base64", "")
+    if not b64:
+        raise HTTPException(status_code=400, detail="Missing image_base64 parameter.")
+    try:
+        raw = base64.b64decode(b64.split(",")[-1])
+        arr = np.frombuffer(raw, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to decode image: {exc}")
+    if img is None:
+        raise HTTPException(status_code=400, detail="Could not decode image from provided data.")
+
+    det = digitizer_pipeline.lead_detector.infer_layout_detailed(img)
+    inferred = det["predicted_layout"]
+    return {
+        "inferred_layout": inferred,
+        "predicted_layout": inferred,
+        "active_layout": inferred,
+        "confidence": float(det["confidence"]),
+        "is_ambiguous": bool(det["is_ambiguous"]),
+        "class_probabilities": det["class_probabilities"],
+        "notes": det.get("notes", ""),
+        "width": img.shape[1],
+        "height": img.shape[0],
+        "is_single": inferred == "single_lead",
     }
 
 
@@ -328,14 +360,8 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
             detail="Image is blank or empty. Please provide a valid ECG image.",
         )
 
-    # Automatic layout inference: only override if auto is specified or if image is unambiguously a small beat crop
-    layout_to_use = req.layout_hint
-    if layout_to_use == "auto":
-        layout_to_use = "single_lead" if img.shape[1] < 700 else "3x4_1"
-    elif layout_to_use == "3x4_1" and img.shape[1] < 500:
-        # Image is physically incapable of holding 4 columns
-        layout_to_use = "single_lead"
-
+    # Automatic layout inference and override handled by pipeline
+    layout_to_use = req.layout_hint or "auto"
     is_cal_reliable = req.is_calibration_reliable if req.is_calibration_reliable is not None else (layout_to_use != "single_lead")
     cal_note = "Standard clinical paper calibration (25 mm/s, 10 mm/mV)" if is_cal_reliable else "Uncalibrated image: nominal mV estimates"
     digit_res = digitizer_pipeline.digitize(
@@ -422,6 +448,12 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
         "success": digit_res.success,
         "warnings": digit_res.warnings,
         "extractor_mode_used": digit_res.extractor_mode_used,
+        "predicted_layout": digit_res.predicted_layout,
+        "active_layout": digit_res.active_layout,
+        "layout_confidence": digit_res.layout_confidence,
+        "is_layout_overridden": digit_res.is_layout_overridden,
+        "is_layout_ambiguous": digit_res.is_layout_ambiguous,
+        "class_probabilities": digit_res.layout_probabilities,
         "deskew_angle_deg": digit_res.preprocessed.skew_angle_deg,
         "deskewed_b64": encode_img_b64(digit_res.preprocessed.deskewed),
         "grid_suppressed_b64": encode_img_b64(digit_res.preprocessed.grid_suppressed),

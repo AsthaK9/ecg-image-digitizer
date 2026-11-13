@@ -111,9 +111,10 @@ class ReconstructedECG:
         header_lines = [
             "# ECG DigiAI — Unified Reconstructed ECG Waveform Record\n",
             f"# Layout: {self.layout_name} | Sampling Rate: {self.sampling_rate_hz:.1f} Hz | Calibration Reliable: {self.is_calibration_reliable}\n",
-            f"# Validated Leads (Trained Distribution): {', '.join(validated_leads) if validated_leads else 'None'}\n",
-            f"# Experimental Leads (Zero-Shot Receptive Field): {', '.join(experimental_leads) if experimental_leads else 'None'}\n",
-            f"# Calibration Note: {self.calibration_note or 'Standard paper calibration (25 mm/s, 10 mm/mV)'}\n",
+            f"# Calibration Standard: {'Calibrated Physical Voltage (mV)' if self.is_calibration_reliable else 'Uncalibrated / Normalized Amplitude'}\n",
+            f"# Calibration Note: {self.calibration_note or ('Standard paper calibration (25 mm/s, 10 mm/mV)' if self.is_calibration_reliable else 'Uncalibrated input: voltage represents relative deflection')}\n",
+            f"# Validated Leads: {', '.join([k for k, l in self.leads.items() if l.is_trained_lead]) if any(l.is_trained_lead for l in self.leads.values()) else 'None'}\n",
+            f"# Leads Present ({len(self.leads)}): {', '.join(self.leads.keys())}\n",
         ]
 
         with open(out, "w", newline="", encoding="utf-8") as f:
@@ -208,9 +209,11 @@ class SignalReconstructor:
         leads: Dict[str, ReconstructedLead] = {}
 
         for name, trace in extracted_traces.items():
-            # In standard 3x4 layout, grid leads are 2.5 seconds each, rhythm strip is 10.0 seconds
-            if layout_name == "3x4_1":
+            # In standard 3x4 layouts, grid leads are 2.5 seconds each, rhythm strips and 12x1 rows are 10.0 seconds
+            if layout_name in ("3x4", "3x4_1", "3x4_3"):
                 duration = 10.0 if "RHYTHM" in name.upper() else 2.5
+            elif layout_name == "12x1":
+                duration = 10.0
             else:
                 duration = None
 

@@ -153,8 +153,8 @@ def detect_grid_presence(img_bgr: np.ndarray) -> bool:
     hue = hsv[:, :, 0]
     sat = hsv[:, :, 1]
     val = hsv[:, :, 2]
-    # Pink/red grid in HSV: hue near 0 or 180, moderate saturation, high brightness
-    pink_grid_mask = ((hue < 25) | (hue > 155)) & (sat > 25) & (val > 140)
+    # Pink/red grid in HSV: hue near 0 or 180, moderate saturation, brightness above paper shadow
+    pink_grid_mask = ((hue < 30) | (hue > 150)) & (sat > 16) & (val > 70)
     pct_pink = float(np.mean(pink_grid_mask) * 100.0)
     return pct_pink > 1.0
 
@@ -246,12 +246,14 @@ class PreprocessingPipeline:
         gray = to_grayscale(img_bgr)
         enhanced = enhance_contrast(gray)
 
-        # Deskewing
+        # Deskewing: only estimate skew from grid lines if a grid is actually present.
+        # On gridless beat crops or digital plots (e.g. N10007), Hough lines on the waveform trace
+        # detect cardiac wave slopes and falsely rotate the image.
         skew_angle = 0.0
         deskewed_bgr = img_bgr
-        if self.enable_deskew:
+        if self.enable_deskew and detect_grid_presence(img_bgr):
             skew_angle = estimate_skew_angle(enhanced, max_angle_deg=self.max_skew_angle)
-            if abs(skew_angle) >= 0.1:
+            if abs(skew_angle) >= 0.2:
                 deskewed_bgr = deskew_image(img_bgr, skew_angle)
 
         # Grid suppression on deskewed BGR image

@@ -40,6 +40,11 @@ class DegradationConfig:
     blur_kernel_size: int = 0          # 0 = none, 3 or 5 for optical blur
     brightness_contrast_jitter: bool = False
     shadow_gradient: bool = False      # Non-uniform paper illumination
+    jpeg_quality: Optional[int] = None # JPEG compression quality (e.g. 35-75)
+    grid_color_style: str = "standard" # standard, faded, dark, or monochrome
+    clinical_header: bool = False      # Realistic clinical hospital report header & table rules
+    vertical_dividers: bool = False    # Realistic vertical column separator rules
+    footer_annotation: bool = False    # Speed/gain/filter footer text annotations
 
 
 @dataclass
@@ -56,6 +61,9 @@ class ECGLayoutConfig:
     grid_major_color: Tuple[int, int, int] = (140, 140, 235)  # BGR darker pink/red (R=235, G=140, B=140)
     trace_color: Tuple[int, int, int] = (15, 15, 25)          # Near-black ink
     include_calibration_pulse: bool = True
+    include_clinical_header: bool = False
+    include_vertical_dividers: bool = False
+    include_footer_annotation: bool = False
 
 
 @dataclass
@@ -98,6 +106,15 @@ class SyntheticECGGenerator:
         ["V4", "V5", "V6"],
     ]
 
+    LAYOUT_12X1_ROWS = [
+        "I", "II", "III",
+        "AVR", "AVL", "AVF",
+        "V1", "V2", "V3",
+        "V4", "V5", "V6",
+    ]
+
+    SUPPORTED_LAYOUTS = ["3x4_1", "3x4_3", "3x4", "12x1"]
+
     def __init__(self, layout: Optional[ECGLayoutConfig] = None) -> None:
         self.layout = layout or ECGLayoutConfig()
         self.pixels_per_mm = self.layout.dpi / 25.4
@@ -111,8 +128,19 @@ class SyntheticECGGenerator:
         lead_names: Optional[List[str]] = None,
         degradation: Optional[DegradationConfig] = None,
         seed: int = 42,
+        layout_type: str = "3x4_1",
     ) -> SyntheticECGResult:
-        """Generate a synthetic ECG paper sheet from 12-lead digital signals."""
+        """Generate a synthetic ECG paper sheet from 12-lead digital signals.
+
+        Supports layouts:
+        - '3x4_1': Standard 3x4 grid + 1 rhythm strip (Lead II) (4 rows total)
+        - '3x4_3': Marquette MAC format: 3x4 grid + 3 rhythm strips (V1, II, V5) (6 rows total)
+        - '3x4': Standard 3x4 grid without rhythm strip (3 rows total)
+        - '12x1': 12 continuous stacked horizontal rows (12 rows total)
+        """
+        if layout_type not in self.SUPPORTED_LAYOUTS:
+            raise ValueError(f"Unsupported layout_type '{layout_type}'. Supported: {self.SUPPORTED_LAYOUTS}")
+
         rng = np.random.RandomState(seed)
 
         source_rec_id = "synthetic_sample"
@@ -133,38 +161,68 @@ class SyntheticECGGenerator:
         height_px = int(round(self.layout.paper_height_mm * self.pixels_per_mm))
 
         # 1. Draw Paper Grid
-        clean_img = self._create_grid_paper(width_px, height_px)
+        grid_style = degradation.grid_color_style if degradation else "standard"
+        clean_img = self._create_grid_paper(width_px, height_px, grid_color_style=grid_style)
         trace_mask = np.zeros((height_px, width_px), dtype=np.uint8)
 
-        # 2. Setup 3x4 + 1 Rhythm Strip Layout
+        # 2. Setup Dimensions and Layout Geometry
         margin_x = int(round(10.0 * self.pixels_per_mm))
         margin_y = int(round(10.0 * self.pixels_per_mm))
         usable_w = width_px - 2 * margin_x
         usable_h = height_px - 2 * margin_y
 
-        # 4 rows: 3 standard rows + 1 rhythm strip
-        row_h = usable_h // 4
+        if layout_type == "3x4_1":
+            num_rows = 4
+        elif layout_type == "3x4_3":
+            num_rows = 6
+        elif layout_type == "3x4":
+            num_rows = 3
+        elif layout_type == "12x1":
+            num_rows = 12
+
+        row_h = usable_h // num_rows
         col_w = usable_w // 4
 
         lead_bboxes: Dict[str, Tuple[int, int, int, int]] = {}
         lead_baselines: Dict[str, int] = {}
         exact_lead_signals: Dict[str, np.ndarray] = {}
 
-        # Draw Metadata Header at the top margin
-        rec_title = f"PTB-XL Record: {source_rec_id} | 25 mm/s, 10 mm/mV | 150 DPI | {fs:.0f} Hz | Clinical 12-Lead Diagnostic ECG"
-        cv2.putText(
-            clean_img,
-            rec_title,
-            (margin_x, max(22, margin_y - 12)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.55,
-            (40, 40, 40),
-            1,
-            cv2.LINE_AA,
-        )
+        # Draw Metadata Header at the top margin (or realistic clinical report header)
+        has_clinical_hdr = self.layout.include_clinical_header or (degradation and degradation.clinical_header)
+        if has_clinical_hdr:
+            hdr_text1 = f"ECG REPORT  |  Record ID: {source_rec_id}  |  Age: 56  |  Sex: Male  |  HR: 72 bpm"
+            hdr_text2 = "Technician: Clinician A  |  Ref-Phys: Cardiology Dept  |  Status: Confirmed Report"
+            cv2.putText(clean_img, hdr_text1, (margin_x, max(18, margin_y - 28)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (30, 30, 30), 1, cv2.LINE_AA)
+            cv2.putText(clean_img, hdr_text2, (margin_x, max(34, margin_y - 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (50, 50, 50), 1, cv2.LINE_AA)
+            cv2.line(clean_img, (margin_x, margin_y - 4), (margin_x + usable_w, margin_y - 4), (60, 60, 60), 1, cv2.LINE_AA)
+        else:
+            rec_title = f"PTB-XL Record: {source_rec_id} | Layout: {layout_type.upper()} | 25 mm/s, 10 mm/mV | 150 DPI | {fs:.0f} Hz | Clinical 12-Lead ECG"
+            cv2.putText(
+                clean_img,
+                rec_title,
+                (margin_x, max(22, margin_y - 12)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.52,
+                (40, 40, 40),
+                1,
+                cv2.LINE_AA,
+            )
+
+        # Draw vertical column dividers if enabled
+        has_v_div = self.layout.include_vertical_dividers or (degradation and degradation.vertical_dividers)
+        if has_v_div and layout_type in ("3x4", "3x4_1", "3x4_3"):
+            for col_i in range(1, 4):
+                vx = margin_x + col_i * col_w
+                grid_rows_count = 3
+                cv2.line(clean_img, (vx, margin_y), (vx, margin_y + grid_rows_count * row_h), (80, 80, 80), 1, cv2.LINE_AA)
+
+        # Draw footer annotation if enabled
+        has_footer = self.layout.include_footer_annotation or (degradation and degradation.footer_annotation)
+        if has_footer:
+            footer_text = "25.0 mm/s  10.0 mm/mV  0.05-150Hz AC50  4*2.5s+1r  SEMIP v1.2"
+            cv2.putText(clean_img, footer_text, (margin_x, min(height_px - 8, margin_y + usable_h + 18)), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (50, 50, 50), 1, cv2.LINE_AA)
 
         # Draw standard 1 mV calibration pulse at start of each row if enabled
-        # Keeps a clean >= 10px separation before margin_x so the pulse does not touch Column 0
         if self.layout.include_calibration_pulse:
             pulse_w = int(round(5.0 * self.pixels_per_mm))   # 5 mm = 0.2s
             pulse_h = int(round(1.0 * self.pixels_per_mv))   # 1 mV = 10 mm
@@ -172,7 +230,7 @@ class SyntheticECGGenerator:
             p_end_x = margin_x - 12
             p_start_x = p_end_x - pulse_in - pulse_w - pulse_in
             if p_start_x >= 2:
-                for r_idx in range(4):
+                for r_idx in range(num_rows):
                     base_y = margin_y + r_idx * row_h + row_h // 2
                     pulse_pts = np.array([
                         [p_start_x, base_y],
@@ -191,129 +249,187 @@ class SyntheticECGGenerator:
                         lineType=cv2.LINE_AA,
                     )
 
-        # 3. Draw 3x4 Main Grid Leads
-        for col_idx, col_leads in enumerate(self.LAYOUT_3X4_COLUMNS):
-            t_start_s = col_idx * 2.5
-            t_end_s = (col_idx + 1) * 2.5
-            idx_start = int(round(t_start_s * fs))
-            idx_end = int(round(t_end_s * fs))
+        # 3. Render Waves according to layout
+        if layout_type in ("3x4", "3x4_1", "3x4_3"):
+            # 3x4 Grid Columns (2.5s duration per lead)
+            for col_idx, col_leads in enumerate(self.LAYOUT_3X4_COLUMNS):
+                t_start_s = col_idx * 2.5
+                t_end_s = (col_idx + 1) * 2.5
+                idx_start = int(round(t_start_s * fs))
+                idx_end = int(round(t_end_s * fs))
 
-            x_box_start = margin_x + col_idx * col_w
-            x_box_end = margin_x + (col_idx + 1) * col_w
+                x_box_start = margin_x + col_idx * col_w
+                x_box_end = margin_x + (col_idx + 1) * col_w
 
-            for row_idx, lead_name in enumerate(col_leads):
+                for row_idx, lead_name in enumerate(col_leads):
+                    y_box_start = margin_y + row_idx * row_h
+                    y_box_end = margin_y + (row_idx + 1) * row_h
+                    baseline_y = y_box_start + row_h // 2
+
+                    lead_bboxes[lead_name] = (x_box_start, y_box_start, x_box_end, y_box_end)
+                    lead_baselines[lead_name] = baseline_y
+
+                    # Draw Lead Label
+                    lbl_font_scale = 0.55 if layout_type == "3x4_3" else 0.65
+                    cv2.putText(
+                        clean_img,
+                        lead_name,
+                        (x_box_start + 6, y_box_start + (18 if layout_type == "3x4_3" else 24)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        lbl_font_scale,
+                        (40, 40, 40),
+                        2 if layout_type != "3x4_3" else 1,
+                        cv2.LINE_AA,
+                    )
+
+                    if lead_name not in lead_idx_map:
+                        continue
+
+                    sig_seg = values[lead_idx_map[lead_name], idx_start:idx_end]
+                    if len(sig_seg) == 0:
+                        continue
+                    exact_lead_signals[lead_name] = sig_seg
+
+                    num_points = len(sig_seg)
+                    seg_time_span = num_points / fs
+                    seg_width_px = seg_time_span * self.pixels_per_sec
+
+                    x_coords = np.linspace(
+                        x_box_start + 10,
+                        min(x_box_start + 10 + seg_width_px, x_box_end - 5),
+                        num_points,
+                    )
+                    y_coords = baseline_y - (sig_seg * self.pixels_per_mv)
+
+                    pts = np.column_stack([x_coords, y_coords]).astype(np.int32)
+                    cv2.polylines(
+                        clean_img,
+                        [pts],
+                        isClosed=False,
+                        color=self.layout.trace_color,
+                        thickness=self.layout.line_thickness,
+                        lineType=cv2.LINE_AA,
+                    )
+                    cv2.polylines(
+                        trace_mask,
+                        [pts],
+                        isClosed=False,
+                        color=255,
+                        thickness=self.layout.line_thickness,
+                        lineType=cv2.LINE_8,
+                    )
+
+            # Rhythm Strips (if applicable)
+            rhythm_configs: List[Tuple[str, str, int]] = []
+            if layout_type == "3x4_1":
+                rhythm_configs = [("II", "II_RHYTHM", 3)]
+            elif layout_type == "3x4_3":
+                rhythm_configs = [("V1", "V1_RHYTHM", 3), ("II", "II_RHYTHM", 4), ("V5", "V5_RHYTHM", 5)]
+
+            for src_lead, r_tag, r_row in rhythm_configs:
+                y_rhythm_start = margin_y + r_row * row_h
+                y_rhythm_end = margin_y + (r_row + 1) * row_h
+                rhythm_baseline_y = y_rhythm_start + row_h // 2
+
+                lead_bboxes[r_tag] = (margin_x, y_rhythm_start, margin_x + usable_w, y_rhythm_end)
+                lead_baselines[r_tag] = rhythm_baseline_y
+
+                lbl_text = f"{src_lead} (Rhythm Strip)"
+                cv2.putText(
+                    clean_img,
+                    lbl_text,
+                    (margin_x + 6, y_rhythm_start + (18 if layout_type == "3x4_3" else 24)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55 if layout_type == "3x4_3" else 0.65,
+                    (40, 40, 40),
+                    1 if layout_type == "3x4_3" else 2,
+                    cv2.LINE_AA,
+                )
+
+                if src_lead in lead_idx_map:
+                    rhythm_sig = values[lead_idx_map[src_lead], : int(round(10.0 * fs))]
+                    exact_lead_signals[r_tag] = rhythm_sig
+                    num_points = len(rhythm_sig)
+                    rhythm_width_px = (num_points / fs) * self.pixels_per_sec
+
+                    x_coords = np.linspace(
+                        margin_x + 10,
+                        min(margin_x + 10 + rhythm_width_px, margin_x + usable_w - 5),
+                        num_points,
+                    )
+                    y_coords = rhythm_baseline_y - (rhythm_sig * self.pixels_per_mv)
+
+                    pts = np.column_stack([x_coords, y_coords]).astype(np.int32)
+                    cv2.polylines(
+                        clean_img,
+                        [pts],
+                        isClosed=False,
+                        color=self.layout.trace_color,
+                        thickness=self.layout.line_thickness,
+                        lineType=cv2.LINE_AA,
+                    )
+                    cv2.polylines(
+                        trace_mask,
+                        [pts],
+                        isClosed=False,
+                        color=255,
+                        thickness=self.layout.line_thickness,
+                        lineType=cv2.LINE_8,
+                    )
+
+        elif layout_type == "12x1":
+            # 12 continuous stacked rows (each 10 seconds continuous across width)
+            for row_idx, lead_name in enumerate(self.LAYOUT_12X1_ROWS):
                 y_box_start = margin_y + row_idx * row_h
                 y_box_end = margin_y + (row_idx + 1) * row_h
                 baseline_y = y_box_start + row_h // 2
 
-                lead_bboxes[lead_name] = (x_box_start, y_box_start, x_box_end, y_box_end)
+                lead_bboxes[lead_name] = (margin_x, y_box_start, margin_x + usable_w, y_box_end)
                 lead_baselines[lead_name] = baseline_y
 
-                # Draw Lead Label with high-contrast legibility
                 cv2.putText(
                     clean_img,
                     lead_name,
-                    (x_box_start + 6, y_box_start + 24),
+                    (margin_x + 6, y_box_start + 14),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.65,
+                    0.40,
                     (40, 40, 40),
-                    2,
+                    1,
                     cv2.LINE_AA,
                 )
 
-                if lead_name not in lead_idx_map:
-                    continue
+                if lead_name in lead_idx_map:
+                    row_sig = values[lead_idx_map[lead_name], : int(round(10.0 * fs))]
+                    exact_lead_signals[lead_name] = row_sig
+                    num_points = len(row_sig)
+                    trace_width_px = (num_points / fs) * self.pixels_per_sec
 
-                sig_seg = values[lead_idx_map[lead_name], idx_start:idx_end]
-                if len(sig_seg) == 0:
-                    continue
-                exact_lead_signals[lead_name] = sig_seg
+                    x_coords = np.linspace(
+                        margin_x + 10,
+                        min(margin_x + 10 + trace_width_px, margin_x + usable_w - 5),
+                        num_points,
+                    )
+                    y_coords = baseline_y - (row_sig * self.pixels_per_mv)
 
-                # Waveform pixel coordinates
-                num_points = len(sig_seg)
-                seg_time_span = num_points / fs
-                seg_width_px = seg_time_span * self.pixels_per_sec
+                    pts = np.column_stack([x_coords, y_coords]).astype(np.int32)
+                    cv2.polylines(
+                        clean_img,
+                        [pts],
+                        isClosed=False,
+                        color=self.layout.trace_color,
+                        thickness=self.layout.line_thickness,
+                        lineType=cv2.LINE_AA,
+                    )
+                    cv2.polylines(
+                        trace_mask,
+                        [pts],
+                        isClosed=False,
+                        color=255,
+                        thickness=self.layout.line_thickness,
+                        lineType=cv2.LINE_8,
+                    )
 
-                x_coords = np.linspace(
-                    x_box_start + 10,
-                    min(x_box_start + 10 + seg_width_px, x_box_end - 5),
-                    num_points,
-                )
-                # ECG voltage: positive mV goes upwards (lower y in image)
-                y_coords = baseline_y - (sig_seg * self.pixels_per_mv)
-
-                # Draw trace & update mask
-                pts = np.column_stack([x_coords, y_coords]).astype(np.int32)
-                cv2.polylines(
-                    clean_img,
-                    [pts],
-                    isClosed=False,
-                    color=self.layout.trace_color,
-                    thickness=self.layout.line_thickness,
-                    lineType=cv2.LINE_AA,
-                )
-                cv2.polylines(
-                    trace_mask,
-                    [pts],
-                    isClosed=False,
-                    color=255,
-                    thickness=self.layout.line_thickness,
-                    lineType=cv2.LINE_8,
-                )
-
-        # 4. Draw Row 3: Rhythm Strip (Lead II, full 10s)
-        rhythm_lead = "II"
-        rhythm_row = 3
-        y_rhythm_start = margin_y + rhythm_row * row_h
-        y_rhythm_end = margin_y + (rhythm_row + 1) * row_h
-        rhythm_baseline_y = y_rhythm_start + row_h // 2
-
-        lead_bboxes["II_RHYTHM"] = (margin_x, y_rhythm_start, margin_x + usable_w, y_rhythm_end)
-        lead_baselines["II_RHYTHM"] = rhythm_baseline_y
-
-        cv2.putText(
-            clean_img,
-            "II (Rhythm Strip)",
-            (margin_x + 6, y_rhythm_start + 24),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.65,
-            (40, 40, 40),
-            2,
-            cv2.LINE_AA,
-        )
-
-        if rhythm_lead in lead_idx_map:
-            rhythm_sig = values[lead_idx_map[rhythm_lead], : int(round(10.0 * fs))]
-            exact_lead_signals["II_RHYTHM"] = rhythm_sig
-            num_points = len(rhythm_sig)
-            rhythm_width_px = (num_points / fs) * self.pixels_per_sec
-
-            x_coords = np.linspace(
-                margin_x + 10,
-                min(margin_x + 10 + rhythm_width_px, margin_x + usable_w - 5),
-                num_points,
-            )
-            y_coords = rhythm_baseline_y - (rhythm_sig * self.pixels_per_mv)
-
-            pts = np.column_stack([x_coords, y_coords]).astype(np.int32)
-            cv2.polylines(
-                clean_img,
-                [pts],
-                isClosed=False,
-                color=self.layout.trace_color,
-                thickness=self.layout.line_thickness,
-                lineType=cv2.LINE_AA,
-            )
-            cv2.polylines(
-                trace_mask,
-                [pts],
-                isClosed=False,
-                color=255,
-                thickness=self.layout.line_thickness,
-                lineType=cv2.LINE_8,
-            )
-
-        # 5. Apply Realistic Photographic / Scanning Degradation
+        # 4. Apply Realistic Photographic / Scanning Degradation
         degraded_img = clean_img.copy()
         if degradation and degradation.enabled:
             degraded_img, trace_mask = self._apply_degradation(
@@ -329,7 +445,7 @@ class SyntheticECGGenerator:
             "gain_mm_mv": self.layout.gain_mm_mv,
             "width_px": width_px,
             "height_px": height_px,
-            "layout": "3x4_1",
+            "layout": layout_type,
         }
 
         return SyntheticECGResult(
@@ -347,7 +463,7 @@ class SyntheticECGGenerator:
             source_record_id=source_rec_id,
         )
 
-    def _create_grid_paper(self, width_px: int, height_px: int) -> np.ndarray:
+    def _create_grid_paper(self, width_px: int, height_px: int, grid_color_style: str = "standard") -> np.ndarray:
         """Draws standard ECG paper background with 1 mm minor and 5 mm major grid lines."""
         # Cream/white paper base
         canvas = np.full((height_px, width_px, 3), 252, dtype=np.uint8)
@@ -355,31 +471,44 @@ class SyntheticECGGenerator:
         px_1mm = self.pixels_per_mm
         px_5mm = 5.0 * px_1mm
 
+        if grid_color_style == "faded":
+            minor_col = (235, 235, 255)
+            major_col = (180, 180, 245)
+        elif grid_color_style == "dark":
+            minor_col = (190, 190, 250)
+            major_col = (110, 110, 220)
+        elif grid_color_style == "monochrome":
+            minor_col = (230, 230, 230)
+            major_col = (180, 180, 180)
+        else:
+            minor_col = self.layout.grid_minor_color
+            major_col = self.layout.grid_major_color
+
         # Draw minor 1 mm grid lines
         num_minor_x = int(width_px // px_1mm)
         for i in range(num_minor_x + 1):
             x = int(round(i * px_1mm))
             if x < width_px:
-                cv2.line(canvas, (x, 0), (x, height_px), self.layout.grid_minor_color, 1)
+                cv2.line(canvas, (x, 0), (x, height_px), minor_col, 1)
 
         num_minor_y = int(height_px // px_1mm)
         for i in range(num_minor_y + 1):
             y = int(round(i * px_1mm))
             if y < height_px:
-                cv2.line(canvas, (0, y), (width_px, y), self.layout.grid_minor_color, 1)
+                cv2.line(canvas, (0, y), (width_px, y), minor_col, 1)
 
         # Draw major 5 mm grid lines
         num_major_x = int(width_px // px_5mm)
         for i in range(num_major_x + 1):
             x = int(round(i * px_5mm))
             if x < width_px:
-                cv2.line(canvas, (x, 0), (x, height_px), self.layout.grid_major_color, 1)
+                cv2.line(canvas, (x, 0), (x, height_px), major_col, 1)
 
         num_major_y = int(height_px // px_5mm)
         for i in range(num_major_y + 1):
             y = int(round(i * px_5mm))
             if y < height_px:
-                cv2.line(canvas, (0, y), (width_px, y), self.layout.grid_major_color, 1)
+                cv2.line(canvas, (0, y), (width_px, y), major_col, 1)
 
         return canvas
 
@@ -460,6 +589,13 @@ class SyntheticECGGenerator:
         if cfg.gaussian_noise_sigma > 1e-3:
             noise = rng.normal(0, cfg.gaussian_noise_sigma, image.shape).astype(np.float32)
             image = np.clip(image.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+
+        # 6. JPEG Compression Artifacts
+        if cfg.jpeg_quality is not None and 10 <= cfg.jpeg_quality <= 95:
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(cfg.jpeg_quality)]
+            success, enc = cv2.imencode(".jpg", image, encode_param)
+            if success:
+                image = cv2.imdecode(enc, cv2.IMREAD_COLOR)
 
         return image, mask
 

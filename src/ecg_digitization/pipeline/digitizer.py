@@ -12,7 +12,7 @@ Integrates:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -51,6 +51,12 @@ class DigitizationPipelineResult:
     success: bool
     warnings: List[str]
     extractor_mode_used: str = "deep"
+    predicted_layout: str = "3x4_1"
+    active_layout: str = "3x4_1"
+    layout_confidence: float = 1.0
+    is_layout_overridden: bool = False
+    is_layout_ambiguous: bool = False
+    layout_probabilities: Dict[str, float] = field(default_factory=dict)
 
     def generate_sheet_overlay(
         self,
@@ -74,21 +80,33 @@ class DigitizationPipelineResult:
         h, w = overlay_img.shape[:2]
 
         # Draw lead bounding boxes and reconstructed waveform traces
+        is_single = (self.layout.layout_name == "single_lead") or (len(self.layout.leads) == 1)
+        is_cal = getattr(self.reconstructed_ecg, "is_calibration_reliable", False)
+
         for name, region in self.layout.leads.items():
             if name in self.extracted_traces:
                 is_trained = self.extracted_traces[name].is_trained_lead
             else:
                 is_trained = name in ("II", "V1", "II_RHYTHM")
 
-            if region.is_rhythm:
+            trace = self.extracted_traces.get(name)
+            is_qual_ok = trace.is_quality_passed if trace else True
+
+            if not is_qual_ok:
+                box_color = (0, 70, 240)        # Amber / Red warning for spikes or clipping
+                tag = "[Warning: Spikes]"
+            elif is_single:
+                box_color = (200, 160, 0)       # Cyan for single lead
+                tag = "[Calibrated]" if is_cal else "[Uncalibrated]"
+            elif region.is_rhythm:
                 box_color = (220, 150, 0)       # Cyan for rhythm
-                tag = "[Rhythm - Validated]" if is_trained else "[Rhythm - Exp]"
-            elif is_trained:
-                box_color = (0, 180, 0)         # Green for validated
-                tag = "[Validated]"
+                tag = "[Rhythm - Calibrated]" if is_cal else "[Rhythm]"
+            elif is_cal:
+                box_color = (0, 180, 0)         # Green for calibrated leads
+                tag = "[Calibrated]"
             else:
-                box_color = (0, 140, 255)       # Orange for experimental
-                tag = "[Experimental]"
+                box_color = (200, 160, 0)       # Cyan for uncalibrated
+                tag = "[Uncalibrated]"
 
             # 1. Bounding box
             cv2.rectangle(overlay_img, (region.x1, region.y1), (region.x2, region.y2), box_color, 2)
@@ -127,20 +145,21 @@ class DigitizationPipelineResult:
         banner = np.full((banner_h, w, 3), 245, dtype=np.uint8)
         cv2.line(banner, (0, banner_h - 1), (w, banner_h - 1), (200, 200, 200), 1)
 
-        all_val = (
-            all(getattr(tr, "is_trained_lead", False) for tr in self.extracted_traces.values())
-            if self.extracted_traces
-            else False
-        )
-        if all_val:
+        if is_single:
+            lead_name_disp = next(iter(self.layout.leads.keys())) if self.layout.leads else "Single"
+            banner_text = (
+                f"ECG DigiAI Single-Lead Diagnostic Overlay | Mode: {self.extractor_mode_used.upper()} | "
+                f"Lead: {lead_name_disp} | Red Trace: Reconstructed Waveform"
+            )
+        elif is_cal:
             banner_text = (
                 f"ECG DigiAI 12-Lead Diagnostic Overlay | Mode: {self.extractor_mode_used.upper()} | "
-                f"Green: All 12 Standard Clinical Leads Validated | Red Trace: Reconstructed Waveform"
+                f"Green: Calibrated Leads (25 mm/s, 10 mm/mV) | Red Trace: Reconstructed Waveform"
             )
         else:
             banner_text = (
                 f"ECG DigiAI 12-Lead Diagnostic Overlay | Mode: {self.extractor_mode_used.upper()} | "
-                f"Green: Validated Leads | Orange: Experimental Leads | Red Trace: Reconstructed Waveform"
+                f"Cyan: Extracted Leads (Uncalibrated Input) | Red Trace: Reconstructed Waveform"
             )
         cv2.putText(banner, banner_text, (10, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (30, 30, 30), 1, cv2.LINE_AA)
 
@@ -209,6 +228,7 @@ class ECGDigitizerPipeline:
             ckpt_candidate = Path(checkpoint_path)
         else:
             candidates = [
+                Path("models/ecg_digitizer_unet_v3_robust.pt"),
                 Path("models/ecg_digitizer_unet_all12lead.pt"),
                 Path("models/ecg_digitizer_unet.pt"),
             ]
@@ -225,7 +245,7 @@ class ECGDigitizerPipeline:
     def digitize(
         self,
         image_source: Union[str, Path, np.ndarray],
-        layout_hint: str = "3x4_1",
+        layout_hint: str = "auto",
         extractor_mode: Optional[str] = None,
         is_calibration_reliable: bool = True,
         calibration_note: str = "",
@@ -239,14 +259,34 @@ class ECGDigitizerPipeline:
         if abs(prep.skew_angle_deg) > 0.5:
             warnings.append(f"Detected skew angle of {prep.skew_angle_deg:.1f} degrees; image deskewed.")
 
-        # 2. Detect lead layout
-        layout = self.lead_detector.detect_layout(prep.binary_trace.shape, layout_hint=layout_hint)
+        # 2. Detect lead layout and separate predicted vs active
+        det_info = self.lead_detector.infer_layout_detailed(prep.deskewed)
+        predicted_layout = det_info["predicted_layout"]
+        layout_conf = det_info["confidence"]
+        is_ambiguous = det_info["is_ambiguous"]
+        layout_probs = det_info["class_probabilities"]
+
+        if layout_hint in ("auto", None):
+            active_layout = predicted_layout
+            is_overridden = False
+        else:
+            active_layout = layout_hint
+            is_overridden = bool(layout_hint != predicted_layout)
+
+        if is_overridden:
+            warnings.append(
+                f"Manual layout override active: using '{active_layout}' (automatic AI prediction was '{predicted_layout}' with {layout_conf * 100:.0f}% confidence)."
+            )
+        if is_ambiguous:
+            warnings.append(det_info.get("notes", "Layout detection confidence is moderate; please verify selected layout."))
+
+        layout = self.lead_detector.detect_layout(prep.binary_trace.shape, layout_hint=active_layout, image=prep.deskewed)
         warnings.extend(layout.warnings)
 
         if not layout.is_supported:
             dummy_ecg = self.reconstructor.reconstruct_ecg(
                 {},
-                layout_name=layout_hint,
+                layout_name=active_layout,
                 is_calibration_reliable=is_calibration_reliable,
                 calibration_note=calibration_note,
             )
@@ -258,6 +298,12 @@ class ECGDigitizerPipeline:
                 success=False,
                 warnings=warnings,
                 extractor_mode_used=mode,
+                predicted_layout=predicted_layout,
+                active_layout=active_layout,
+                layout_confidence=layout_conf,
+                is_layout_overridden=is_overridden,
+                is_layout_ambiguous=is_ambiguous,
+                layout_probabilities=layout_probs,
             )
 
         # Check deep digitizer availability
@@ -276,14 +322,23 @@ class ECGDigitizerPipeline:
                 warnings.append(f"Empty crop for lead '{lead_name}'.")
                 continue
 
-            expected_baseline_y = crop_color.shape[0] / 2.0
+            expected_baseline_y = float(region.baseline_y_hint) if region.baseline_y_hint is not None else (crop_color.shape[0] / 2.0)
             if self.deep_digitizer is not None:
                 is_trained = lead_name in self.deep_digitizer.supported_leads
             else:
                 is_trained = lead_name in ("II", "V1", "II_RHYTHM")
 
             # Route based on extractor mode and lead scope
-            if use_deep and (mode == "deep" or (mode == "hybrid" and is_trained)):
+            is_single_beat = bool(active_layout == "single_lead" or len(layout.leads) == 1)
+            # For single-lead beat crops (e.g. N10007, Q1), classical centroid extraction achieves
+            # sub-pixel precision (<0.15 px) and cleanly trims inactive zero-padding tails.
+            # Multi-lead clinical sheets with paper grids route to Deep U-Net.
+            if is_single_beat and mode != "deep_forced":
+                route_to_deep = False
+            else:
+                route_to_deep = use_deep and (mode in ("deep", "hybrid", "deep_forced") or is_trained)
+
+            if route_to_deep:
                 try:
                     trace = self.deep_digitizer.extract_trace_from_lead_crop(
                         lead_crop=crop_color,
@@ -311,7 +366,7 @@ class ECGDigitizerPipeline:
         # 4. Calibrate and reconstruct digital ECG
         reconstructed = self.reconstructor.reconstruct_ecg(
             extracted_traces=extracted_traces,
-            layout_name=layout_hint,
+            layout_name=active_layout,
             is_calibration_reliable=is_calibration_reliable,
             calibration_note=calibration_note,
         )
@@ -324,4 +379,10 @@ class ECGDigitizerPipeline:
             success=True,
             warnings=warnings,
             extractor_mode_used=mode if use_deep else "classical",
+            predicted_layout=predicted_layout,
+            active_layout=active_layout,
+            layout_confidence=layout_conf,
+            is_layout_overridden=is_overridden,
+            is_layout_ambiguous=is_ambiguous,
+            layout_probabilities=layout_probs,
         )

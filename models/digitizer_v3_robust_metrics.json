@@ -1,0 +1,298 @@
+{
+  "experiment_title": "Controlled Experiment: Baseline vs. Retrained Robust ECGDigitizerUNet",
+  "training_duration_s": 197.18,
+  "compute_device": "mps",
+  "dataset_split": {
+    "train_folds": "1-8",
+    "val_fold": "9",
+    "test_fold": "10 (quarantined)",
+    "train_crops_count": 720,
+    "val_crops_count": 240
+  },
+  "baseline_checkpoint": {
+    "path": "models/ecg_digitizer_unet_all12lead.pt",
+    "metrics": {
+      "samples": 240,
+      "mean_dice": 0.5479,
+      "mean_iou": 0.3979,
+      "mean_pixel_mae": 2.44,
+      "mean_pearson_r": 0.8549,
+      "mean_rmse_mv": 0.0989,
+      "per_lead": {
+        "I": {
+          "mean_pearson_r": 0.908,
+          "mean_rmse_mv": 0.0551,
+          "mean_mae_px": 1.37,
+          "count": 20
+        },
+        "II": {
+          "mean_pearson_r": 0.8964,
+          "mean_rmse_mv": 0.071,
+          "mean_mae_px": 1.75,
+          "count": 20
+        },
+        "III": {
+          "mean_pearson_r": 0.8489,
+          "mean_rmse_mv": 0.0677,
+          "mean_mae_px": 1.82,
+          "count": 20
+        },
+        "AVR": {
+          "mean_pearson_r": 0.8569,
+          "mean_rmse_mv": 0.0875,
+          "mean_mae_px": 2.39,
+          "count": 20
+        },
+        "AVL": {
+          "mean_pearson_r": 0.8392,
+          "mean_rmse_mv": 0.0693,
+          "mean_mae_px": 1.87,
+          "count": 20
+        },
+        "AVF": {
+          "mean_pearson_r": 0.7887,
+          "mean_rmse_mv": 0.0901,
+          "mean_mae_px": 2.34,
+          "count": 20
+        },
+        "V1": {
+          "mean_pearson_r": 0.8924,
+          "mean_rmse_mv": 0.0678,
+          "mean_mae_px": 1.81,
+          "count": 20
+        },
+        "V2": {
+          "mean_pearson_r": 0.8307,
+          "mean_rmse_mv": 0.2058,
+          "mean_mae_px": 4.05,
+          "count": 20
+        },
+        "V3": {
+          "mean_pearson_r": 0.8806,
+          "mean_rmse_mv": 0.1189,
+          "mean_mae_px": 2.56,
+          "count": 20
+        },
+        "V4": {
+          "mean_pearson_r": 0.8668,
+          "mean_rmse_mv": 0.1216,
+          "mean_mae_px": 3.33,
+          "count": 20
+        },
+        "V5": {
+          "mean_pearson_r": 0.8454,
+          "mean_rmse_mv": 0.1125,
+          "mean_mae_px": 2.53,
+          "count": 20
+        },
+        "V6": {
+          "mean_pearson_r": 0.8052,
+          "mean_rmse_mv": 0.1197,
+          "mean_mae_px": 3.5,
+          "count": 20
+        }
+      },
+      "per_degradation": {
+        "clean": {
+          "mean_pearson_r": 0.9931,
+          "mean_rmse_mv": 0.0288,
+          "mean_mae_px": 0.51,
+          "mean_dice": 0.6363,
+          "count": 48
+        },
+        "text_overlap": {
+          "mean_pearson_r": 0.9668,
+          "mean_rmse_mv": 0.0495,
+          "mean_mae_px": 0.89,
+          "mean_dice": 0.6565,
+          "count": 48
+        },
+        "faded_grid": {
+          "mean_pearson_r": 0.797,
+          "mean_rmse_mv": 0.1354,
+          "mean_mae_px": 3.96,
+          "mean_dice": 0.5338,
+          "count": 48
+        },
+        "thick_stroke": {
+          "mean_pearson_r": 0.8712,
+          "mean_rmse_mv": 0.0976,
+          "mean_mae_px": 2.28,
+          "mean_dice": 0.5689,
+          "count": 48
+        },
+        "thin_stroke": {
+          "mean_pearson_r": 0.6466,
+          "mean_rmse_mv": 0.1834,
+          "mean_mae_px": 4.57,
+          "mean_dice": 0.3439,
+          "count": 48
+        }
+      }
+    }
+  },
+  "retrained_robust_model": {
+    "path": "models/ecg_digitizer_unet_v3_robust.pt",
+    "metrics": {
+      "samples": 240,
+      "mean_dice": 0.9462,
+      "mean_iou": 0.8985,
+      "mean_pixel_mae": 0.87,
+      "mean_pearson_r": 0.9871,
+      "mean_rmse_mv": 0.038,
+      "per_lead": {
+        "I": {
+          "mean_pearson_r": 0.9891,
+          "mean_rmse_mv": 0.0236,
+          "mean_mae_px": 0.85,
+          "count": 20
+        },
+        "II": {
+          "mean_pearson_r": 0.9917,
+          "mean_rmse_mv": 0.0254,
+          "mean_mae_px": 0.84,
+          "count": 20
+        },
+        "III": {
+          "mean_pearson_r": 0.9893,
+          "mean_rmse_mv": 0.0208,
+          "mean_mae_px": 0.76,
+          "count": 20
+        },
+        "AVR": {
+          "mean_pearson_r": 0.9885,
+          "mean_rmse_mv": 0.0243,
+          "mean_mae_px": 0.83,
+          "count": 20
+        },
+        "AVL": {
+          "mean_pearson_r": 0.9859,
+          "mean_rmse_mv": 0.0198,
+          "mean_mae_px": 0.77,
+          "count": 20
+        },
+        "AVF": {
+          "mean_pearson_r": 0.9898,
+          "mean_rmse_mv": 0.0205,
+          "mean_mae_px": 0.75,
+          "count": 20
+        },
+        "V1": {
+          "mean_pearson_r": 0.9899,
+          "mean_rmse_mv": 0.0251,
+          "mean_mae_px": 0.81,
+          "count": 20
+        },
+        "V2": {
+          "mean_pearson_r": 0.976,
+          "mean_rmse_mv": 0.1156,
+          "mean_mae_px": 1.02,
+          "count": 20
+        },
+        "V3": {
+          "mean_pearson_r": 0.9861,
+          "mean_rmse_mv": 0.0563,
+          "mean_mae_px": 0.94,
+          "count": 20
+        },
+        "V4": {
+          "mean_pearson_r": 0.9861,
+          "mean_rmse_mv": 0.0438,
+          "mean_mae_px": 1.03,
+          "count": 20
+        },
+        "V5": {
+          "mean_pearson_r": 0.9848,
+          "mean_rmse_mv": 0.0448,
+          "mean_mae_px": 0.96,
+          "count": 20
+        },
+        "V6": {
+          "mean_pearson_r": 0.9885,
+          "mean_rmse_mv": 0.036,
+          "mean_mae_px": 0.88,
+          "count": 20
+        }
+      },
+      "per_degradation": {
+        "clean": {
+          "mean_pearson_r": 0.99,
+          "mean_rmse_mv": 0.0347,
+          "mean_mae_px": 0.79,
+          "mean_dice": 0.9638,
+          "count": 48
+        },
+        "text_overlap": {
+          "mean_pearson_r": 0.9909,
+          "mean_rmse_mv": 0.0339,
+          "mean_mae_px": 0.83,
+          "mean_dice": 0.9604,
+          "count": 48
+        },
+        "faded_grid": {
+          "mean_pearson_r": 0.9858,
+          "mean_rmse_mv": 0.0397,
+          "mean_mae_px": 0.95,
+          "mean_dice": 0.94,
+          "count": 48
+        },
+        "thick_stroke": {
+          "mean_pearson_r": 0.9842,
+          "mean_rmse_mv": 0.0398,
+          "mean_mae_px": 0.85,
+          "mean_dice": 0.94,
+          "count": 48
+        },
+        "thin_stroke": {
+          "mean_pearson_r": 0.9848,
+          "mean_rmse_mv": 0.0419,
+          "mean_mae_px": 0.93,
+          "mean_dice": 0.9268,
+          "count": 48
+        }
+      }
+    }
+  },
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 1.5163,
+      "val_dice": 0.8384,
+      "val_pixel_mae": 1.47,
+      "val_pearson_r": 0.9563,
+      "val_rmse_mv": 0.0614
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.9956,
+      "val_dice": 0.9112,
+      "val_pixel_mae": 1.04,
+      "val_pearson_r": 0.982,
+      "val_rmse_mv": 0.0451
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.7661,
+      "val_dice": 0.9324,
+      "val_pixel_mae": 0.95,
+      "val_pearson_r": 0.9837,
+      "val_rmse_mv": 0.0411
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.6284,
+      "val_dice": 0.943,
+      "val_pixel_mae": 0.96,
+      "val_pearson_r": 0.9847,
+      "val_rmse_mv": 0.0423
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.5593,
+      "val_dice": 0.9462,
+      "val_pixel_mae": 0.87,
+      "val_pearson_r": 0.9871,
+      "val_rmse_mv": 0.038
+    }
+  ]
+}

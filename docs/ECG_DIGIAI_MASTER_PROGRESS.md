@@ -46,10 +46,23 @@
 
 ---
 
-## 3. Dataset Paths & Verification Status
-- PTB-XL: Verified at `data/raw/ptb-xl/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/`. Contains `records100/`, `records500/`, `ptbxl_database.csv`, and `scp_statements.csv`.
-- ECG Image Data: Verified at `data/raw/ecg-image-data/ECG_Image_data/`. Unpaired beat crops; strictly used for qualitative testing.
-- Pairing Strategy: Primary paired training and quantitative evaluation uses authentic PTB-XL digital signals rendered into synthetic paper images with known millimeter grid spacing and exact digital ground-truth arrays.
+## 3. Dataset Paths & Comprehensive Audit Status
+- **Dataset A — PTB-XL (`data/raw/ptb-xl/`):**
+  - Verified root: `data/raw/ptb-xl/ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/`
+  - Total records: **21,837 complete 12-lead records** from **18,885 unique patients**.
+  - Channel verification: Exactly 12 standard leads in standard clinical order (`I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6`).
+  - Signal properties: Exactly 10.0 seconds duration, physical millivolts ($mV$), gain 1000.0, baseline 0. Available at 100 Hz (`records100/`, 1,000 samples) and 500 Hz (`records500/`, 5,000 samples).
+  - Patient separation: 10 strat_folds with **100% strict zero-patient overlap** (Folds 1-8: 15,108 patients, Fold 9: 1,887 patients, Fold 10: 1,890 patients).
+  - Pairing status: **100% paired**. Serves as the authentic digital ground truth for full 12-lead paper ECG rendering and quantitative evaluation.
+- **Dataset B — ECG Image Data (`data/raw/ecg-image-data/`):**
+  - Verified root: `data/raw/ecg-image-data/ECG_Image_data/`
+  - Total images: **123,998 files** across `test` (25,649) and `train` (98,349) in 6 classes (`F, M, N, Q, S, V`).
+  - Image properties: 100% PNG format, identical resolution **`432 x 288 x 3`**.
+  - Visible leads: **Single-lead beat crops only** (0 full 12-lead sheets in the entire dataset). Typically Lead II / MLII extracted from MIT-BIH.
+  - Paper grid & calibration: Pure white background; zero millimeter grid lines; zero calibration pulses.
+  - Pairing status: **Unpaired**. No digital signal arrays provided.
+  - Suitability: Strictly suitable only for single-lead qualitative robustness testing (Scenarios B & C). Completely unsuitable for 12-lead digitisation training.
+  - Audit deliverables: Inventory CSV at `data/interim/ecg_image_data_inventory.csv`, Contact Sheet at `data/interim/contact_sheet_ecg_image_data.png`.
 
 ---
 
@@ -73,15 +86,18 @@
 | **Phase 6** | Workstation UI & Lead Explorer Interactions | **VERIFIED** | Drag-to-select interval measurement on canvas ($\Delta t$ ms & HR); rhythm guard $\ge 4$ RR |
 | **Phase 7** | Synthetic ECG Generation & Calibration Pulse | **VERIFIED** | 1 mV pulse ($10\text{ mm} \times 5\text{ mm}$) with $\ge 12\text{ px}$ column separation; header metadata |
 | **Phase 8** | Evaluation & Multi-Format Signal Export | **VERIFIED** | State preserved on base64 input; unified CSV, WFDB `.dat`/`.hea`, JSON, and overlay plots |
-| **Phase 9** | Unit & Integration Test Suite | **VERIFIED** | **120 / 120 tests passed**, 0 failures, 85% total codebase coverage |
+| **Phase 9** | Unit & Integration Test Suite | **VERIFIED** | **122 / 122 tests passed**, 0 failures, 85% total codebase coverage |
+| **Phase 10** | Real Clinical Sheet Recovery (`ecg1.jpeg` & `3x4_3` Layout) | **VERIFIED** | Auto-inferred 6-row Marquette MAC `3x4_3` layout; fixed 1:1 pixel scaling; red sawtooth oscillations reduced from 40 px jump to 1.1 px |
+| **Phase 11** | Visual Precision & Single-Lead Robustness (`ecg1` & `N10007`) | **VERIFIED** | Dynamic peak-anchored row geometry; label margin suppression (0.92 px mean distance to original ink on `ecg1.jpeg`; V2: 0.71 px; V5_RHYTHM: 1.21 px); gated deskew for gridless crops; full trace extent [52:359] for `N10007.png` |
+| **Phase 12** | Full 12-Lead Paired Pipeline & Multi-Layout Renderer | **VERIFIED** | Synthetic renderer supporting all 4 layouts (`3x4`, `3x4_1`, `3x4_3`, `12x1`) with pink millimeter grid, 1 mV pulses, and JPEG/optical degradations. Small paired benchmark generated strictly from PTB-XL Fold 9 with zero training patient leakage. **127 / 127 tests passed (86% coverage)**. Clean 12-lead mean $r = 0.7386$, 12x1 stacked mean $r = 0.7041$. |
 
 ---
 
 ## 6. End-to-End Quantitative Verification Metrics (`verify_3_scenarios.py`)
 
 ### Scenario A — Paired Synthetic 12-Lead Clinical Sheet (PTB-XL Record `00001_lr`)
-- **Overall Mean Pearson Correlation ($r$):** **0.8134**
-- **Overall Mean RMSE:** **0.1301 mV**
+- **Overall Mean Pearson Correlation ($r$):** **0.8254**
+- **Overall Mean RMSE:** **0.0768 mV**
 - **Completeness:** **100.0% across all 13 leads**
 
 | Lead Name | Pearson Correlation ($r$) | RMSE (mV) | SNR (dB) | Completeness | Validation Status |
@@ -129,3 +145,16 @@
   ```bash
   MPLCONFIGDIR=/tmp/mpl .venv/bin/python scripts/diagnose_pipeline_failures.py
   ```
+
+---
+
+## 8. Phase 3 Training Readiness Audit Status (Completed 13 Nov 2026)
+- **Status:** Complete. Documented in artifact `phase3_training_readiness.md`.
+- **Determination:** **NO-GO FOR IMMEDIATE TRAINING** pending 4 remediation gates:
+  1. *Dynamic Range Fix:* Expand crop window from $128\text{ px} \to 192\text{ px}$ to eliminate precordial S-wave flat-topping (V2, V3).
+  2. *Marquette Layout Fix:* Dynamically compute column boundaries in `lead_detector.py` to eliminate 39 px / 264 ms horizontal lag.
+  3. *Augmentation Realism:* Introduce optical blur, illumination gradients, and grid contrast variations into Kaggle training script.
+  4. *Kaggle Authentication:* Re-authenticate Kaggle CLI with active credentials.
+- **Model Architecture Decision:** Selected **Option C (Hybrid Architecture)**: Layout Anchor + Adaptive-Window Lead Crop U-Net ($192\text{ px}$) + 1D Waveform Refinement Head. Option B (full-sheet direct) rejected due to extreme QRS downsampling penalty ($80\text{ ms} \to <3\text{ px}$) and memory OOM risk on Kaggle GPUs.
+- **Fold Isolation:** PTB-XL Folds 1–8 reserved for training, Fold 9 for validation/early stopping, Fold 10 strictly quarantined for final benchmark. Zero patient leakage.
+

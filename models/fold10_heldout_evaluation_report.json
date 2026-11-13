@@ -1,0 +1,703 @@
+{
+  "dataset": "PTB-XL Held-Out Fold 10 (Quarantined Test Set)",
+  "total_test_samples": 40,
+  "n_samples_per_layout": 10,
+  "patient_overlap_with_train_val": 0,
+  "overall_metrics": {
+    "layout_classification_accuracy": 0.6,
+    "mean_pearson_r": 0.1381,
+    "mean_rmse_mv": 0.4872,
+    "mean_completeness_pct": 0.99,
+    "trace_segmentation_dice": 0.1141,
+    "trace_segmentation_iou": 0.0618
+  },
+  "confusion_matrix": {
+    "3x4": {
+      "3x4": 0,
+      "3x4_1": 4,
+      "3x4_3": 6,
+      "12x1": 0,
+      "single_lead": 0
+    },
+    "3x4_1": {
+      "3x4": 0,
+      "3x4_1": 4,
+      "3x4_3": 6,
+      "12x1": 0,
+      "single_lead": 0
+    },
+    "3x4_3": {
+      "3x4": 0,
+      "3x4_1": 0,
+      "3x4_3": 10,
+      "12x1": 0,
+      "single_lead": 0
+    },
+    "12x1": {
+      "3x4": 0,
+      "3x4_1": 0,
+      "3x4_3": 0,
+      "12x1": 10,
+      "single_lead": 0
+    }
+  },
+  "per_layout_performance": {
+    "3x4": {
+      "accuracy": 0.0,
+      "mean_pearson": 0.083,
+      "std_pearson": 0.0721,
+      "mean_rmse_mv": 0.3863,
+      "mean_completeness_pct": 1.0
+    },
+    "3x4_1": {
+      "accuracy": 0.4,
+      "mean_pearson": 0.027,
+      "std_pearson": 0.1405,
+      "mean_rmse_mv": 0.3984,
+      "mean_completeness_pct": 0.99
+    },
+    "3x4_3": {
+      "accuracy": 1.0,
+      "mean_pearson": 0.4776,
+      "std_pearson": 0.096,
+      "mean_rmse_mv": 0.5272,
+      "mean_completeness_pct": 1.0
+    },
+    "12x1": {
+      "accuracy": 1.0,
+      "mean_pearson": -0.0352,
+      "std_pearson": 0.0651,
+      "mean_rmse_mv": 0.6371,
+      "mean_completeness_pct": 0.98
+    }
+  },
+  "per_lead_performance": {
+    "AVF": {
+      "count": 40,
+      "mean_pearson": 0.1438,
+      "median_pearson": 0.1354,
+      "mean_rmse_mv": 0.4578,
+      "mean_completeness_pct": 1.0
+    },
+    "AVL": {
+      "count": 40,
+      "mean_pearson": 0.2288,
+      "median_pearson": 0.2447,
+      "mean_rmse_mv": 0.4084,
+      "mean_completeness_pct": 1.0
+    },
+    "AVR": {
+      "count": 40,
+      "mean_pearson": 0.1409,
+      "median_pearson": 0.0828,
+      "mean_rmse_mv": 0.4662,
+      "mean_completeness_pct": 1.0
+    },
+    "I": {
+      "count": 40,
+      "mean_pearson": 0.0529,
+      "median_pearson": 0.0537,
+      "mean_rmse_mv": 0.5358,
+      "mean_completeness_pct": 1.0
+    },
+    "II": {
+      "count": 40,
+      "mean_pearson": 0.1186,
+      "median_pearson": 0.1051,
+      "mean_rmse_mv": 0.4884,
+      "mean_completeness_pct": 0.99
+    },
+    "III": {
+      "count": 40,
+      "mean_pearson": 0.15,
+      "median_pearson": 0.1065,
+      "mean_rmse_mv": 0.4442,
+      "mean_completeness_pct": 1.0
+    },
+    "II_RHYTHM": {
+      "count": 20,
+      "mean_pearson": 0.3366,
+      "median_pearson": 0.3462,
+      "mean_rmse_mv": 0.4234,
+      "mean_completeness_pct": 1.0
+    },
+    "V1": {
+      "count": 40,
+      "mean_pearson": 0.0985,
+      "median_pearson": 0.0502,
+      "mean_rmse_mv": 0.5048,
+      "mean_completeness_pct": 1.0
+    },
+    "V1_RHYTHM": {
+      "count": 10,
+      "mean_pearson": 0.431,
+      "median_pearson": 0.4789,
+      "mean_rmse_mv": 0.395,
+      "mean_completeness_pct": 1.0
+    },
+    "V2": {
+      "count": 40,
+      "mean_pearson": 0.0509,
+      "median_pearson": 0.0037,
+      "mean_rmse_mv": 0.6356,
+      "mean_completeness_pct": 1.0
+    },
+    "V3": {
+      "count": 40,
+      "mean_pearson": 0.1345,
+      "median_pearson": 0.1473,
+      "mean_rmse_mv": 0.6004,
+      "mean_completeness_pct": 1.0
+    },
+    "V4": {
+      "count": 40,
+      "mean_pearson": 0.0522,
+      "median_pearson": -0.0154,
+      "mean_rmse_mv": 0.5315,
+      "mean_completeness_pct": 0.99
+    },
+    "V5": {
+      "count": 40,
+      "mean_pearson": 0.1779,
+      "median_pearson": 0.1565,
+      "mean_rmse_mv": 0.4277,
+      "mean_completeness_pct": 0.99
+    },
+    "V5_RHYTHM": {
+      "count": 10,
+      "mean_pearson": 0.4333,
+      "median_pearson": 0.4036,
+      "mean_rmse_mv": 0.3169,
+      "mean_completeness_pct": 1.0
+    },
+    "V6": {
+      "count": 40,
+      "mean_pearson": 0.2888,
+      "median_pearson": 0.3321,
+      "mean_rmse_mv": 0.4512,
+      "mean_completeness_pct": 0.95
+    }
+  },
+  "case_level_records": [
+    {
+      "ecg_id": 2221,
+      "patient_id": 6504.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6440170843595697,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.0349,
+      "mean_rmse_mv": 0.3438,
+      "completeness_pct": 1.0,
+      "dice": 0.0475,
+      "iou": 0.0243
+    },
+    {
+      "ecg_id": 160,
+      "patient_id": 13470.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6440174890668859,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.1389,
+      "mean_rmse_mv": 0.3387,
+      "completeness_pct": 1.0,
+      "dice": 0.0482,
+      "iou": 0.0247
+    },
+    {
+      "ecg_id": 5953,
+      "patient_id": 8516.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6440341147104337,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.1313,
+      "mean_rmse_mv": 0.3572,
+      "completeness_pct": 1.0,
+      "dice": 0.0515,
+      "iou": 0.0264
+    },
+    {
+      "ecg_id": 210,
+      "patient_id": 16062.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.6554658121019602,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.1416,
+      "mean_rmse_mv": 0.413,
+      "completeness_pct": 1.0,
+      "dice": 0.0598,
+      "iou": 0.0308
+    },
+    {
+      "ecg_id": 3568,
+      "patient_id": 9001.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.6602804152816534,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.0211,
+      "mean_rmse_mv": 0.4544,
+      "completeness_pct": 1.0,
+      "dice": 0.054,
+      "iou": 0.0277
+    },
+    {
+      "ecg_id": 16119,
+      "patient_id": 14053.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.6667209478616715,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.0839,
+      "mean_rmse_mv": 0.4787,
+      "completeness_pct": 1.0,
+      "dice": 0.0685,
+      "iou": 0.0355
+    },
+    {
+      "ecg_id": 18676,
+      "patient_id": 14696.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.644051042760606,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.1888,
+      "mean_rmse_mv": 0.367,
+      "completeness_pct": 1.0,
+      "dice": 0.0689,
+      "iou": 0.0357
+    },
+    {
+      "ecg_id": 6577,
+      "patient_id": 406.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.6528365443050862,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.1306,
+      "mean_rmse_mv": 0.4168,
+      "completeness_pct": 1.0,
+      "dice": 0.0535,
+      "iou": 0.0275
+    },
+    {
+      "ecg_id": 38,
+      "patient_id": 17076.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6440221302980208,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.0113,
+      "mean_rmse_mv": 0.3162,
+      "completeness_pct": 0.99,
+      "dice": 0.0504,
+      "iou": 0.0258
+    },
+    {
+      "ecg_id": 2638,
+      "patient_id": 12184.0,
+      "ground_truth_layout": "3x4",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6440492806837429,
+      "active_layout": "3x4_3",
+      "mean_pearson": -0.0523,
+      "mean_rmse_mv": 0.3769,
+      "completeness_pct": 0.99,
+      "dice": 0.0659,
+      "iou": 0.034
+    },
+    {
+      "ecg_id": 16707,
+      "patient_id": 14010.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6449939751122147,
+      "active_layout": "3x4_3",
+      "mean_pearson": -0.084,
+      "mean_rmse_mv": 0.3165,
+      "completeness_pct": 1.0,
+      "dice": 0.0692,
+      "iou": 0.0359
+    },
+    {
+      "ecg_id": 9056,
+      "patient_id": 17620.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.4392659151554108,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.1844,
+      "mean_rmse_mv": 0.6073,
+      "completeness_pct": 1.0,
+      "dice": 0.0607,
+      "iou": 0.0313
+    },
+    {
+      "ecg_id": 6625,
+      "patient_id": 4822.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6465666530244053,
+      "active_layout": "3x4_3",
+      "mean_pearson": -0.1083,
+      "mean_rmse_mv": 0.4224,
+      "completeness_pct": 0.99,
+      "dice": 0.1063,
+      "iou": 0.0561
+    },
+    {
+      "ecg_id": 19914,
+      "patient_id": 9938.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6449011481888592,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.0088,
+      "mean_rmse_mv": 0.3063,
+      "completeness_pct": 0.99,
+      "dice": 0.0731,
+      "iou": 0.038
+    },
+    {
+      "ecg_id": 18742,
+      "patient_id": 21508.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.43910496473312377,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.2365,
+      "mean_rmse_mv": 0.4956,
+      "completeness_pct": 1.0,
+      "dice": 0.0649,
+      "iou": 0.0335
+    },
+    {
+      "ecg_id": 12262,
+      "patient_id": 13944.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.4393882417678834,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.1912,
+      "mean_rmse_mv": 0.4146,
+      "completeness_pct": 1.0,
+      "dice": 0.0613,
+      "iou": 0.0316
+    },
+    {
+      "ecg_id": 14501,
+      "patient_id": 1259.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6454340803492814,
+      "active_layout": "3x4_3",
+      "mean_pearson": -0.1088,
+      "mean_rmse_mv": 0.3779,
+      "completeness_pct": 0.99,
+      "dice": 0.0822,
+      "iou": 0.0429
+    },
+    {
+      "ecg_id": 6207,
+      "patient_id": 7968.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_1",
+      "confidence": 0.4381544077396393,
+      "active_layout": "3x4_1",
+      "mean_pearson": 0.1577,
+      "mean_rmse_mv": 0.4354,
+      "completeness_pct": 1.0,
+      "dice": 0.0735,
+      "iou": 0.0381
+    },
+    {
+      "ecg_id": 13166,
+      "patient_id": 13944.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6447110960083082,
+      "active_layout": "3x4_3",
+      "mean_pearson": -0.1287,
+      "mean_rmse_mv": 0.2615,
+      "completeness_pct": 0.99,
+      "dice": 0.0678,
+      "iou": 0.0351
+    },
+    {
+      "ecg_id": 15988,
+      "patient_id": 1270.0,
+      "ground_truth_layout": "3x4_1",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.6450276709916071,
+      "active_layout": "3x4_3",
+      "mean_pearson": -0.0784,
+      "mean_rmse_mv": 0.3463,
+      "completeness_pct": 0.99,
+      "dice": 0.0852,
+      "iou": 0.0445
+    },
+    {
+      "ecg_id": 8178,
+      "patient_id": 19410.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9437220516204834,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.2994,
+      "mean_rmse_mv": 0.4697,
+      "completeness_pct": 1.0,
+      "dice": 0.0947,
+      "iou": 0.0497
+    },
+    {
+      "ecg_id": 9272,
+      "patient_id": 9459.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9437269868850708,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.547,
+      "mean_rmse_mv": 0.4064,
+      "completeness_pct": 1.0,
+      "dice": 0.0838,
+      "iou": 0.0437
+    },
+    {
+      "ecg_id": 5973,
+      "patient_id": 10414.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9437541844844819,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.5396,
+      "mean_rmse_mv": 0.4814,
+      "completeness_pct": 1.0,
+      "dice": 0.1095,
+      "iou": 0.0579
+    },
+    {
+      "ecg_id": 10200,
+      "patient_id": 14296.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.943890422821045,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.407,
+      "mean_rmse_mv": 0.5048,
+      "completeness_pct": 1.0,
+      "dice": 0.1245,
+      "iou": 0.0664
+    },
+    {
+      "ecg_id": 2119,
+      "patient_id": 4448.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9438590230941772,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.3873,
+      "mean_rmse_mv": 0.6847,
+      "completeness_pct": 0.98,
+      "dice": 0.177,
+      "iou": 0.0971
+    },
+    {
+      "ecg_id": 13908,
+      "patient_id": 21560.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9439746441841126,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.5059,
+      "mean_rmse_mv": 0.628,
+      "completeness_pct": 1.0,
+      "dice": 0.1372,
+      "iou": 0.0737
+    },
+    {
+      "ecg_id": 1994,
+      "patient_id": 15633.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9437563660144807,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.6457,
+      "mean_rmse_mv": 0.5701,
+      "completeness_pct": 1.0,
+      "dice": 0.1169,
+      "iou": 0.0621
+    },
+    {
+      "ecg_id": 7374,
+      "patient_id": 19940.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9432456912994385,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.5171,
+      "mean_rmse_mv": 0.5022,
+      "completeness_pct": 1.0,
+      "dice": 0.0868,
+      "iou": 0.0454
+    },
+    {
+      "ecg_id": 15094,
+      "patient_id": 6812.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9437794330120087,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.5253,
+      "mean_rmse_mv": 0.5193,
+      "completeness_pct": 1.0,
+      "dice": 0.1077,
+      "iou": 0.0569
+    },
+    {
+      "ecg_id": 16915,
+      "patient_id": 21354.0,
+      "ground_truth_layout": "3x4_3",
+      "predicted_layout": "3x4_3",
+      "confidence": 0.9438002469539644,
+      "active_layout": "3x4_3",
+      "mean_pearson": 0.4016,
+      "mean_rmse_mv": 0.5051,
+      "completeness_pct": 1.0,
+      "dice": 0.0989,
+      "iou": 0.052
+    },
+    {
+      "ecg_id": 6283,
+      "patient_id": 17680.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439786853790284,
+      "active_layout": "12x1",
+      "mean_pearson": 0.0229,
+      "mean_rmse_mv": 0.5947,
+      "completeness_pct": 0.97,
+      "dice": 0.1863,
+      "iou": 0.1027
+    },
+    {
+      "ecg_id": 19054,
+      "patient_id": 16647.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439958515167237,
+      "active_layout": "12x1",
+      "mean_pearson": -0.0799,
+      "mean_rmse_mv": 0.5379,
+      "completeness_pct": 0.98,
+      "dice": 0.2027,
+      "iou": 0.1128
+    },
+    {
+      "ecg_id": 2767,
+      "patient_id": 16877.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439923467636109,
+      "active_layout": "12x1",
+      "mean_pearson": -0.0093,
+      "mean_rmse_mv": 0.6828,
+      "completeness_pct": 0.98,
+      "dice": 0.2677,
+      "iou": 0.1545
+    },
+    {
+      "ecg_id": 10624,
+      "patient_id": 7859.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439731063842773,
+      "active_layout": "12x1",
+      "mean_pearson": 0.0128,
+      "mean_rmse_mv": 0.6401,
+      "completeness_pct": 0.98,
+      "dice": 0.1658,
+      "iou": 0.0904
+    },
+    {
+      "ecg_id": 1315,
+      "patient_id": 13702.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.43993528723716735,
+      "active_layout": "12x1",
+      "mean_pearson": -0.2046,
+      "mean_rmse_mv": 0.7394,
+      "completeness_pct": 0.98,
+      "dice": 0.2103,
+      "iou": 0.1175
+    },
+    {
+      "ecg_id": 18739,
+      "patient_id": 20835.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439775052070618,
+      "active_layout": "12x1",
+      "mean_pearson": -0.0566,
+      "mean_rmse_mv": 0.6303,
+      "completeness_pct": 0.99,
+      "dice": 0.2451,
+      "iou": 0.1397
+    },
+    {
+      "ecg_id": 2551,
+      "patient_id": 3387.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439545812606812,
+      "active_layout": "12x1",
+      "mean_pearson": 0.0234,
+      "mean_rmse_mv": 0.6509,
+      "completeness_pct": 0.98,
+      "dice": 0.2178,
+      "iou": 0.1222
+    },
+    {
+      "ecg_id": 1061,
+      "patient_id": 1302.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439051928520203,
+      "active_layout": "12x1",
+      "mean_pearson": -0.043,
+      "mean_rmse_mv": 0.6705,
+      "completeness_pct": 0.99,
+      "dice": 0.2188,
+      "iou": 0.1228
+    },
+    {
+      "ecg_id": 11453,
+      "patient_id": 16018.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439806880950928,
+      "active_layout": "12x1",
+      "mean_pearson": -0.0053,
+      "mean_rmse_mv": 0.6379,
+      "completeness_pct": 0.98,
+      "dice": 0.1786,
+      "iou": 0.098
+    },
+    {
+      "ecg_id": 18056,
+      "patient_id": 16813.0,
+      "ground_truth_layout": "12x1",
+      "predicted_layout": "12x1",
+      "confidence": 0.9439611258506775,
+      "active_layout": "12x1",
+      "mean_pearson": -0.0125,
+      "mean_rmse_mv": 0.586,
+      "completeness_pct": 0.99,
+      "dice": 0.2233,
+      "iou": 0.1257
+    }
+  ]
+}
