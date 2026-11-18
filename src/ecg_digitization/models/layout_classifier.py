@@ -136,7 +136,11 @@ class LayoutDetectorService:
                     has_color_grid = True
 
         # 2. Horizontal divider rules / header boundaries
-        bin_inv = (gray < 150).astype(np.uint8) * 255
+        # In color grid sheets, suppress colored grid lines so only true black/gray printed rules are detected
+        if has_color_grid:
+            bin_inv = ((gray < 120) & (sat < 25)).astype(np.uint8) * 255
+        else:
+            bin_inv = (gray < 150).astype(np.uint8) * 255
         horiz_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(20, int(w * 0.25)), 1))
         solid_hlines = cv2.morphologyEx(bin_inv, cv2.MORPH_OPEN, horiz_kernel)
         hlines_y = np.where(solid_hlines.sum(axis=1) > 0)[0]
@@ -188,6 +192,15 @@ class LayoutDetectorService:
 
         # 2. Localize active waveform canvas
         y1, y2, x1, x2, canvas_mode = self.detect_active_canvas(image)
+        # If color_grid extends across full image (y1 <= 0.015 * h), apply standard clinical 10mm margins
+        if y1 <= int(0.015 * h):
+            y1 = int(round(h * (10.0 / 210.0)))
+        if y2 >= int(0.985 * h):
+            y2 = h - int(round(h * (10.0 / 210.0)))
+        if x1 <= int(0.025 * w):
+            x1 = int(round(w * (10.0 / 280.0)))
+        if x2 >= int(0.975 * w):
+            x2 = w - int(round(w * (10.0 / 280.0)))
         active_h = max(10, y2 - y1)
         active_w = max(10, x2 - x1)
 
@@ -198,19 +211,41 @@ class LayoutDetectorService:
         solid_hlines = cv2.morphologyEx(bin_inv, cv2.MORPH_OPEN, horiz_kernel)
         waveform_ink = cv2.subtract(bin_inv, solid_hlines)
 
-        canvas_ink = waveform_ink[y1:y2, x1:x2]
+        # Exclude outer header margin and footer margin only if full_sheet (unbounded)
+        bot_cut = 0.04 if canvas_mode == "full_sheet" else 0.005
+        top_cut = 0.03 if canvas_mode == "full_sheet" else 0.005
+        y_sub1 = y1 + int(top_cut * active_h)
+        y_sub2 = y2 - int(bot_cut * active_h)
+        h_eff = max(10, y_sub2 - y_sub1)
+
+        canvas_ink = waveform_ink[y_sub1:y_sub2, x1:x2]
         proj = np.sum(canvas_ink > 0, axis=1).astype(np.float32)
 
-        win = max(7, int(active_h // 35))
+        win = max(7, int(h_eff // 35))
         smooth = np.convolve(proj, np.ones(win) / float(win), mode="same")
+        max_val = float(np.max(smooth)) if len(smooth) > 0 else 0.0
 
         import scipy.signal
-        peaks, _ = scipy.signal.find_peaks(
-            smooth,
-            distance=max(12, int(active_h / 18)),
-            prominence=max(2.0, float(np.max(smooth)) * 0.08),
-        )
-        n_rows = len(peaks)
+        if max_val > 5.0:
+            # Check for 12x1 dense stacked rows
+            peaks_12, _ = scipy.signal.find_peaks(
+                smooth,
+                distance=max(8, int(h_eff / 16)),
+                prominence=max_val * 0.20,
+            )
+            # Check for standard multi-row layouts (3x4, 3x4_1, 3x4_3)
+            peaks_wide, _ = scipy.signal.find_peaks(
+                smooth,
+                distance=max(15, int(h_eff / 7.5)),
+                prominence=max_val * 0.20,
+            )
+        else:
+            peaks_12, peaks_wide = np.array([]), np.array([])
+
+        if len(peaks_12) >= 10:
+            n_rows = len(peaks_12)
+        else:
+            n_rows = len(peaks_wide)
 
         # 4. CNN prediction on active canvas
         cnn_probs: Dict[str, float] = {}

@@ -158,10 +158,39 @@ def run_fold10_evaluation(n_samples_per_layout: int = 10):
             # 2. Run End-to-End Pipeline (auto layout mode)
             result = pipeline.digitize(img, layout_hint="auto")
 
-            # 3. Compute Segmentation Dice & IoU on active canvas
-            # We compare the binarized extracted canvas trace against ground truth trace mask
-            pred_trace_mask = result.preprocessed.binary_trace
-            dice, iou = compute_segmentation_dice_iou(pred_trace_mask, gt_mask)
+            # 3. Compute Segmentation Dice & IoU on neural segmentation predictions
+            lead_dices = []
+            lead_ious = []
+            for lead_name, trace in result.extracted_traces.items():
+                if lead_name not in result.layout.leads or getattr(trace, "segmentation_mask", None) is None:
+                    continue
+                reg = result.layout.leads[lead_name]
+                gt_crop = gt_mask[reg.y1:reg.y2, reg.x1:reg.x2]
+                h_c, w_c = gt_crop.shape[:2]
+                if h_c == 0 or w_c == 0:
+                    continue
+                pred_c = np.zeros((h_c, w_c), dtype=np.uint8)
+                s_mask = trace.segmentation_mask
+                c1, c2 = trace.active_start_col, trace.active_end_col
+                by = int(round(trace.baseline_y))
+                y1 = max(0, by - 64)
+                y2 = min(h_c, y1 + 128)
+                if y2 - y1 < 128:
+                    y1 = max(0, y2 - 128)
+                    y2 = min(h_c, y1 + 128)
+                rw = max(1, c2 - c1)
+                rh = max(1, y2 - y1)
+                res_s = cv2.resize(s_mask, (rw, rh), interpolation=cv2.INTER_NEAREST)
+                pred_c[y1:y2, c1:c2] = res_s
+                d_lead, i_lead = compute_segmentation_dice_iou(pred_c, gt_crop)
+                lead_dices.append(d_lead)
+                lead_ious.append(i_lead)
+
+            if lead_dices:
+                dice = float(np.mean(lead_dices))
+                iou = float(np.mean(lead_ious))
+            else:
+                dice, iou = compute_segmentation_dice_iou(result.preprocessed.binary_trace, gt_mask)
             dice_scores.append(dice)
             iou_scores.append(iou)
 

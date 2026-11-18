@@ -191,8 +191,10 @@ def suppress_grid(img_bgr: np.ndarray) -> np.ndarray:
     is_red_dominant = (r.astype(np.int16) - g.astype(np.int16) > 15) & (r.astype(np.int16) - b.astype(np.int16) > 15)
     grid_mask = is_pink_grid & is_red_dominant
 
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    bg_local = cv2.dilate(r, kernel)
     suppressed = r.copy()
-    suppressed[grid_mask] = 255
+    suppressed[grid_mask] = bg_local[grid_mask]
     return suppressed
 
 
@@ -217,8 +219,11 @@ def binarize_trace(img_gray: np.ndarray, block_size: int = 15, c: int = 5) -> np
         c,
     )
 
-    # Contrast gating: pixel must differ by at least 20 levels from pure background
-    contrast_mask = (inv > 20).astype(np.uint8) * 255
+    # Robust local contrast gating: pixel must be at least 18 levels darker than local illumination
+    # (replaces brittle static 255-baseline gating that fails under shadow gradients)
+    bg_illum = cv2.morphologyEx(img_gray, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (31, 31)))
+    diff = cv2.subtract(bg_illum, img_gray)
+    contrast_mask = (diff >= 18).astype(np.uint8) * 255
     combined = cv2.bitwise_and(adapt, contrast_mask)
 
     # Remove only isolated 1-2 pixel salt-and-pepper noise specks via connected components

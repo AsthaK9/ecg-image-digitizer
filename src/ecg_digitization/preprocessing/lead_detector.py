@@ -179,14 +179,24 @@ class LeadLayoutDetector:
             )
 
         if image is not None:
-            canv_y1, canv_y2, canv_x1, canv_x2, _ = self.detect_active_canvas(image)
+            canv_y1, canv_y2, canv_x1, canv_x2, mode = self.detect_active_canvas(image)
+            # If color_grid extends across full image, apply standard clinical 10mm paper margins
+            if canv_y1 <= int(0.015 * h):
+                canv_y1 = int(round(h * (10.0 / 210.0)))
+            if canv_y2 >= int(0.985 * h):
+                canv_y2 = h - int(round(h * (10.0 / 210.0)))
+            if canv_x1 <= int(0.025 * w):
+                canv_x1 = int(round(w * (10.0 / 280.0)))
+            if canv_x2 >= int(0.975 * w):
+                canv_x2 = w - int(round(w * (10.0 / 280.0)))
+
             margin_y = canv_y1
             margin_x = canv_x1
             usable_w = max(50, canv_x2 - canv_x1)
             usable_h = max(50, canv_y2 - canv_y1)
         else:
-            margin_x = int(round(w * margin_ratio))
-            margin_y = int(round(h * margin_ratio))
+            margin_x = int(round(w * (10.0 / 280.0)))
+            margin_y = int(round(h * (10.0 / 210.0)))
             usable_w = w - 2 * margin_x
             usable_h = h - 2 * margin_y
 
@@ -216,7 +226,7 @@ class LeadLayoutDetector:
                     det_peaks, _ = find_peaks(
                         smooth,
                         distance=min_dist,
-                        prominence=max(2.0, float(np.max(smooth)) * 0.08),
+                        prominence=max(2.0, float(np.max(smooth)) * 0.20),
                     )
                     abs_det = [int(p + margin_y) for p in det_peaks]
                     valid = [p for p in abs_det if margin_y <= p <= margin_y + usable_h]
@@ -328,8 +338,9 @@ class LeadLayoutDetector:
                     pass
 
             if len(peaks) == 6:
+                r0_top = max(0, int(round(peaks[0] - (peaks[1] - peaks[0]) * 0.5)))
                 row_bounds = [
-                    (0, (peaks[0] + peaks[1]) // 2),
+                    (r0_top, (peaks[0] + peaks[1]) // 2),
                     ((peaks[0] + peaks[1]) // 2, (peaks[1] + peaks[2]) // 2),
                     ((peaks[1] + peaks[2]) // 2, (peaks[2] + peaks[3]) // 2),
                     ((peaks[2] + peaks[3]) // 2, (peaks[3] + peaks[4]) // 2),
@@ -338,17 +349,12 @@ class LeadLayoutDetector:
                 ]
                 row_baselines = [float(p) for p in peaks]
             else:
-                fracs = [0.085, 0.255, 0.425, 0.595, 0.765, 0.935]
-                centers = [int(round(h * f)) for f in fracs]
+                row_h = usable_h // 6
                 row_bounds = [
-                    (0, (centers[0] + centers[1]) // 2),
-                    ((centers[0] + centers[1]) // 2, (centers[1] + centers[2]) // 2),
-                    ((centers[1] + centers[2]) // 2, (centers[2] + centers[3]) // 2),
-                    ((centers[2] + centers[3]) // 2, (centers[3] + centers[4]) // 2),
-                    ((centers[3] + centers[4]) // 2, (centers[4] + centers[5]) // 2),
-                    ((centers[4] + centers[5]) // 2, min(h - int(round(h * 0.033)), int(round(h * 0.967)))),
+                    (margin_y + i * row_h, margin_y + (i + 1) * row_h)
+                    for i in range(6)
                 ]
-                row_baselines = [float(c) for c in centers]
+                row_baselines = [float(margin_y + (i + 0.5) * row_h) for i in range(6)]
 
             for col_idx, col_leads in enumerate(self.LAYOUT_3X4_COLUMNS):
                 x1 = int(round(x_start + col_idx * col_w))
@@ -424,7 +430,7 @@ class LeadLayoutDetector:
                     y2=y2,
                     row=row_idx,
                     col=0,
-                    is_rhythm=False,
+                    is_rhythm=True,
                     baseline_y_hint=float(row_h // 2),
                 )
 

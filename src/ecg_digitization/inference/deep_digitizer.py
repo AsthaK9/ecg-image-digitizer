@@ -460,16 +460,18 @@ class DeepCropDigitizer:
                     base_y_local = modal_y
 
         # 2. Determine active column span (discard unprinted margins and lead label text)
-        is_12x1 = bool(h < 110 and not is_rhythm and "RHYTHM" not in lead_name)
-        if h < 120 and w < 220:
+        is_12x1 = bool(h < 110 and "RHYTHM" not in lead_name)
+        is_10s_strip = bool(is_rhythm or (is_12x1 and w >= 800) or w >= 1200)
+        if is_10s_strip:
+            col_min = 10 if w >= 1000 else 4
+            expected_10s = int(round(10.0 * 147.6378))
+            col_max = min(w - 4, col_min + expected_10s)
+        elif h < 120 and w < 220:
             # Compact 6-row Marquette MAC real sheet (e.g. ecg1.jpeg)
-            col_min = 24 if (is_rhythm or lead_name in ("I", "II", "III")) else 21
-            col_max = w - 4
-        elif is_rhythm and h < 120:
-            col_min = 24
+            col_min = 24 if lead_name in ("I", "II", "III") else 21
             col_max = w - 4
         else:
-            y_c1 = max(40, int(round(base_y_local - 75)))
+            y_c1 = max(20, int(round(base_y_local - 75)))
             y_c2 = min(h, int(round(base_y_local + 75)))
             corridor = binary_crop[y_c1:y_c2, :] if y_c2 > y_c1 else binary_crop
             active_in_corridor = np.where(corridor[:, 5:].sum(axis=0) > 0)[0] if corridor.size > 0 else np.array([])
@@ -478,6 +480,20 @@ class DeepCropDigitizer:
             else:
                 col_min = int(active_in_corridor[0]) + 5
                 col_max = int(active_in_corridor[-1]) + 5
+
+            # Suppress vertical column divider lines on right edge
+            col_ink = np.sum(binary_crop > 0, axis=0) if binary_crop.size > 0 else np.zeros(w)
+            vert_lines = np.where(col_ink > 0.45 * h)[0]
+            right_divs = [c for c in vert_lines if c >= 0.70 * w]
+            if right_divs:
+                col_max = min(col_max, right_divs[0] - 2)
+
+            # For standard grid leads in full clinical sheets, preserve exact physical 2.5s duration
+            # (25 mm/s, ~147.64 px/s = ~369 px at 150 DPI) to prevent phase-drift and time dilation
+            if not is_rhythm and not is_12x1 and w >= 320:
+                expected_2_5s_px = int(round(2.5 * 147.6378))
+                col_min = 10
+                col_max = min(w - 1, col_min + expected_2_5s_px)
 
         col_min = max(0, min(col_min, w - 10))
         col_max = min(w - 1, max(col_max, col_min + 5))
@@ -506,12 +522,13 @@ class DeepCropDigitizer:
             inf_y2 = min(h, inf_y1 + 128)
         h_win = max(1, inf_y2 - inf_y1)
 
-        if is_rhythm:
-            # Rhythm strip (~10s, typically ~1476px): chunk into 4 contiguous 2.5s sub-windows
+        if is_10s_strip:
+            # Rhythm strip or 12x1 full row (~10s, typically ~1476px): chunk into 4 contiguous 2.5s sub-windows
             num_chunks = 4
             chunk_w = active_w / float(num_chunks)
             chunk_trajs = []
             chunk_confs = []
+            chunk_masks = []
 
             for i in range(num_chunks):
                 c1 = int(round(col_min + i * chunk_w))
@@ -520,11 +537,20 @@ class DeepCropDigitizer:
                 chunk_slice = lead_crop[inf_y1:inf_y2, c1:c2]
 
                 if chunk_slice.shape[0] < 128:
-                    pad_h = 128 - chunk_slice.shape[0]
-                    chunk_slice = cv2.copyMakeBorder(chunk_slice, 0, pad_h, 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+                    needed = 128 - chunk_slice.shape[0]
+                    curr_base = float(base_y_local - inf_y1)
+                    pad_top = int(round(64.0 - curr_base))
+                    pad_top = max(0, min(pad_top, needed))
+                    pad_bot = needed - pad_top
+                    chunk_slice = cv2.copyMakeBorder(chunk_slice, pad_top, pad_bot, 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+                    chunk_offset_y = inf_y1 - pad_top
+                    base_chunk_model = float(curr_base + pad_top)
+                else:
+                    chunk_offset_y = inf_y1
+                    base_chunk_model = float(base_y_local - inf_y1)
+
                 win_resized = cv2.resize(chunk_slice, (256, 128))
 
-                base_chunk_model = float(base_y_local - inf_y1)
                 tensor = torch.from_numpy(win_resized).permute(2, 0, 1).float().unsqueeze(0) / 255.0
                 with torch.no_grad():
                     out = self.model(tensor.to(self.device), baseline_y=float(base_chunk_model))
@@ -532,24 +558,35 @@ class DeepCropDigitizer:
                 py128 = out.pixel_coordinates.squeeze(0).cpu().numpy()
                 conf = out.column_confidence.squeeze(0).cpu().numpy()
                 # 1:1 scale mapping back to original crop coordinates
-                py_orig = inf_y1 + py128
+                py_orig = chunk_offset_y + py128
 
                 # Resample to chunk's pixel width
                 resamp_py = np.interp(np.linspace(0, 255, cur_w), np.arange(256), py_orig)
                 chunk_trajs.append(resamp_py)
                 chunk_confs.append(float(np.mean(conf)))
+                chunk_masks.append((out.segmentation_probs.squeeze().cpu().numpy() > 0.4).astype(np.uint8))
 
             traj = np.concatenate(chunk_trajs).astype(np.float32)
             mean_conf = float(np.mean(chunk_confs))
+            seg_mask = np.concatenate(chunk_masks, axis=1)
         else:
             # Standard grid lead (2.5s)
             active_slice = lead_crop[inf_y1:inf_y2, col_min : col_max + 1]
             if active_slice.shape[0] < 128:
-                pad_h = 128 - active_slice.shape[0]
-                active_slice = cv2.copyMakeBorder(active_slice, 0, pad_h, 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+                needed = 128 - active_slice.shape[0]
+                curr_base = float(base_y_local - inf_y1)
+                pad_top = int(round(64.0 - curr_base))
+                pad_top = max(0, min(pad_top, needed))
+                pad_bot = needed - pad_top
+                active_slice = cv2.copyMakeBorder(active_slice, pad_top, pad_bot, 0, 0, cv2.BORDER_CONSTANT, value=[252, 252, 252])
+                offset_y = inf_y1 - pad_top
+                base_lead_model = float(curr_base + pad_top)
+            else:
+                offset_y = inf_y1
+                base_lead_model = float(base_y_local - inf_y1)
+
             win_resized = cv2.resize(active_slice, (256, 128))
 
-            base_lead_model = float(base_y_local - inf_y1)
             tensor = torch.from_numpy(win_resized).permute(2, 0, 1).float().unsqueeze(0) / 255.0
             with torch.no_grad():
                 out = self.model(tensor.to(self.device), baseline_y=float(base_lead_model))
@@ -557,10 +594,11 @@ class DeepCropDigitizer:
             py128 = out.pixel_coordinates.squeeze(0).cpu().numpy()
             conf = out.column_confidence.squeeze(0).cpu().numpy()
             # 1:1 scale mapping back to original crop coordinates
-            py_orig = inf_y1 + py128
+            py_orig = offset_y + py128
 
             traj = np.interp(np.linspace(0, 255, active_w), np.arange(256), py_orig).astype(np.float32)
             mean_conf = float(np.mean(conf))
+            seg_mask = (out.segmentation_probs.squeeze().cpu().numpy() > 0.4).astype(np.uint8)
 
         rel_traj = (base_y_local - traj).astype(np.float32)
         comp_ratio = float(np.mean(binary_crop.sum(axis=0)[col_min : col_max + 1] > 0)) if binary_crop.size > 0 else 1.0
@@ -605,4 +643,5 @@ class DeepCropDigitizer:
             max_jump_px=max_j,
             is_quality_passed=is_qual_ok,
             quality_note=qual_note,
+            segmentation_mask=seg_mask,
         )

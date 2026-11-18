@@ -39,6 +39,7 @@ TARGETS = [
     ("ecg1.jpeg", Path("tests/fixtures/ecg1.jpeg")),
     ("ecg2.jpeg", Path("tests/fixtures/ecg2.jpeg")),
     ("ecg3.jpg", Path("tests/fixtures/ecg3.jpg")),
+    ("ecg4.jpg", Path("tests/fixtures/ecg4.jpg")),
     ("N10007.png", Path("data/real_ecg_eval/samples/N10007.png")),
     ("Q1.png", Path("data/real_ecg_eval/samples/Q1.png")),
 ]
@@ -142,6 +143,7 @@ def evaluate_all_real_images():
         ("ecg3.jpg (auto)", Path("tests/fixtures/ecg3.jpg"), None, "auto"),
         ("ecg3.jpg (forced 3x4_1)", Path("tests/fixtures/ecg3.jpg"), "3x4_1", "forced_3x4_1"),
         ("ecg3.jpg (forced 3x4_3)", Path("tests/fixtures/ecg3.jpg"), "3x4_3", "forced_3x4_3"),
+        ("ecg4.jpg (auto)", Path("tests/fixtures/ecg4.jpg"), None, "auto"),
         ("N10007.png", Path("data/real_ecg_eval/samples/N10007.png"), None, "auto"),
         ("Q1.png", Path("data/real_ecg_eval/samples/Q1.png"), None, "auto"),
     ]

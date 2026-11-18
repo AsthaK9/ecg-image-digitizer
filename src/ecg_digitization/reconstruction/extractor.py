@@ -45,6 +45,7 @@ class ExtractedTrace:
     is_quality_passed: bool = True
     quality_note: str = "Passed"
     tail_trimmed_samples: int = 0
+    segmentation_mask: Optional[np.ndarray] = None
 
 
 class WaveformExtractor:

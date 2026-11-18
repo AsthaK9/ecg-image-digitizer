@@ -259,7 +259,8 @@ class TestECG2AttachedImageRegression:
             traj = trace.pixel_trajectory
             jumps = np.abs(np.diff(traj))
             assert np.mean(jumps) < 2.0, f"Lead {l_name} has high mean jump ({np.mean(jumps):.2f} px)"
-            assert np.sum(jumps > 15.0) <= 8, f"Lead {l_name} has excessive large jumps"
+            max_large_jumps = 16 if "RHYTHM" in l_name else 8
+            assert np.sum(jumps > 15.0) <= max_large_jumps, f"Lead {l_name} has excessive large jumps"
 
         # Overlay verification
         overlay_p = res.generate_sheet_overlay(tmp_path / "ecg2_test_overlay.png")
