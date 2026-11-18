@@ -17,155 +17,655 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 <title>ECG DigiAI — Biomedical Engineering Workstation</title>
 <style>
     :root {
-        --bg: #f8fafc;
-        --surface: #ffffff;
-        --border: #e2e8f0;
-        --border-subtle: #f1f5f9;
-        --text-main: #0f172a;
-        --text-muted: #64748b;
-        --primary: #0284c7;
-        --primary-dark: #0369a1;
-        --primary-light: #e0f2fe;
-        --teal-trace: #0f766e;
-        --teal-light: #ccfbf1;
-        --blue-gt: #1e3a8a;
-        --validated-green: #15803d;
-        --validated-bg: #ecfdf5;
-        --experimental-amber: #b45309;
-        --experimental-bg: #fffbeb;
-        --danger: #dc2626;
-        --danger-bg: #fef2f2;
-        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-        --font-mono: "JetBrains Mono", Consolas, "SF Mono", monospace;
+        --chrome: #0B1F33;
+        --chrome-2: #12304A;
+        --chrome-line: #1F4160;
+        --on-chrome: #E6EEF5;
+        --on-chrome-muted: #9FB3C8;
+        --accent-on-dark: #2DD4BF;
+
+        --bg: #EEF2F6;
+        --surface: #FFFFFF;
+        --surface-sunken: #F5F7FA;
+        --border: #D5DDE6;
+        --border-strong: #B8C4D0;
+        --border-subtle: #E8EEF3;
+
+        --text-main: #14212E;
+        --text-muted: #4B5B6B;
+
+        --primary: #0F766E;
+        --primary-dark: #0B5F58;
+        --primary-light: #E3F4F2;
+
+        --trace-teal: #0F766E;
+        --teal-trace: #0F766E;
+        --teal-light: #E3F4F2;
+        --blue-gt: #1E3A8A;
+
+        --success: #15803D;
+        --success-bg: #E8F5EC;
+        --validated-green: #15803D;
+        --validated-bg: #E8F5EC;
+
+        --warning: #B45309;
+        --warning-bg: #FEF3E2;
+        --experimental-amber: #B45309;
+        --experimental-bg: #FEF3E2;
+
+        --danger: #B91C1C;
+        --danger-bg: #FDECEC;
+
+        --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+        --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", "JetBrains Mono", Consolas, monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--font-sans); background: var(--bg); color: var(--text-main); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+    body {
+        font-family: var(--font-sans);
+        background: var(--bg);
+        color: var(--text-main);
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
     
-    /* Top Institutional Header */
-    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-    .brand-block { display: flex; align-items: center; gap: 12px; }
-    .brand-title { font-size: 17px; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
-    .brand-tag { font-size: 11px; background: var(--primary-light); color: var(--primary-dark); font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; }
-    .brand-subtitle { font-size: 11px; color: var(--text-muted); }
+    /* Top Instrument Frame Header */
+    header {
+        background: var(--chrome);
+        border-bottom: 1px solid var(--chrome-line);
+        padding: 14px 24px 10px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    .brand-block { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    .brand-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--on-chrome);
+        letter-spacing: -0.2px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .brand-tag {
+        font-size: 11px;
+        background: transparent;
+        color: var(--accent-on-dark);
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 4px;
+        border: 1px solid var(--chrome-line);
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    .brand-subtitle { font-size: 12px; color: var(--on-chrome-muted); }
     
-    .header-badges { display: flex; align-items: center; gap: 8px; }
-    .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid transparent; }
-    .badge-validated { background: var(--validated-bg); color: var(--validated-green); border-color: #a7f3d0; }
-    .badge-deferred { background: var(--experimental-bg); color: var(--experimental-amber); border-color: #fde68a; }
-    .btn-header { padding: 5px 12px; font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 4px; cursor: pointer; color: var(--text-main); font-weight: 500; }
-    .btn-header:hover { background: #f1f5f9; }
+    .header-badges { display: flex; align-items: center; gap: 10px; }
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        border: 1px solid transparent;
+        letter-spacing: 0.3px;
+    }
+    .status-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+    .badge-validated { background: var(--success-bg); color: var(--success); border-color: #BBF7D0; }
+    .badge-validated::before { background: var(--success); }
+    .badge-deferred { background: var(--warning-bg); color: var(--warning); border-color: #FDE68A; }
+    .badge-deferred::before { background: var(--warning); }
+    
+    .btn-header {
+        padding: 6px 14px;
+        font-size: 12px;
+        border: 1px solid var(--chrome-line);
+        background: var(--chrome-2);
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--on-chrome);
+        font-weight: 500;
+        transition: all 120ms ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-header:hover {
+        background: var(--chrome);
+        border-color: var(--accent-on-dark);
+        color: var(--on-chrome);
+    }
+    .btn-header:focus-visible {
+        outline: 2px solid var(--accent-on-dark);
+        outline-offset: 2px;
+    }
 
-    /* Navigation Tabs */
-    .nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; gap: 4px; }
-    .nav-tab { padding: 12px 18px; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; gap: 6px; }
-    .nav-tab:hover { color: var(--primary); }
-    .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-    .tab-num { font-size: 11px; opacity: 0.7; font-family: var(--font-mono); }
+    /* Navigation Tabs as part of instrument chrome band */
+    .nav-tabs {
+        background: var(--chrome);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        padding: 0 24px;
+        gap: 2px;
+        position: sticky;
+        top: 59px;
+        z-index: 99;
+        box-shadow: 0 2px 4px rgba(11,31,51,0.04);
+    }
+    .nav-tab {
+        padding: 12px 18px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--on-chrome-muted);
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        transition: all 120ms ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 6px 6px 0 0;
+        outline: none;
+    }
+    .nav-tab:hover {
+        color: var(--on-chrome);
+        background: var(--chrome-2);
+    }
+    .nav-tab.active {
+        color: #FFFFFF;
+        font-weight: 600;
+        background: var(--chrome-2);
+        border-bottom-color: var(--accent-on-dark);
+    }
+    .nav-tab:focus-visible {
+        outline: 2px solid var(--accent-on-dark);
+        outline-offset: -2px;
+    }
+    .tab-num {
+        font-size: 11px;
+        color: var(--accent-on-dark);
+        opacity: 0.9;
+        font-family: var(--font-mono);
+        font-weight: 500;
+    }
 
     /* Main Container */
-    main { padding: 20px 24px; max-width: 1560px; margin: 0 auto; }
+    main { padding: 24px; max-width: 1560px; margin: 0 auto; }
     .tab-section { display: none; }
     .tab-section.active { display: block; }
 
     /* Standard Cards & Panels */
-    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
-    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-    .panel-title { font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
-    .panel-subtitle { font-size: 11px; color: var(--text-muted); font-weight: normal; }
+    .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 2px rgba(11,31,51,0.06);
+    }
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+    }
+    .panel-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .panel-subtitle {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: normal;
+    }
 
     /* Grid Layouts */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .grid-workbench { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 
     /* Form Controls */
-    label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
-    input[type="text"], input[type="number"], select { width: 100%; padding: 7px 10px; font-size: 12px; font-family: inherit; border: 1px solid var(--border); border-radius: 4px; outline: none; background: #fff; color: var(--text-main); margin-bottom: 12px; }
-    input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(2,132,199,0.15); }
+    label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-muted);
+        display: block;
+        margin-bottom: 6px;
+        letter-spacing: 0.1px;
+    }
+    input[type="text"], input[type="number"], select {
+        width: 100%;
+        height: 36px;
+        padding: 0 12px;
+        font-size: 13px;
+        font-family: inherit;
+        border: 1px solid var(--border-strong);
+        border-radius: 6px;
+        outline: none;
+        background: var(--surface);
+        color: var(--text-main);
+        margin-bottom: 14px;
+        transition: border-color 120ms ease, box-shadow 120ms ease;
+    }
+    input:focus, select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(15,118,110,0.2);
+    }
+    input[type="range"] {
+        accent-color: var(--primary);
+    }
     
     /* Buttons */
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 4px; font-weight: 600; font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease; text-decoration: none; }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
-    .btn-secondary { background: #fff; border-color: var(--border); color: var(--text-main); }
-    .btn-secondary:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .btn-sm { padding: 4px 9px; font-size: 11px; }
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 36px;
+        padding: 0 14px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 13px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 120ms ease;
+        text-decoration: none;
+        outline: none;
+    }
+    .btn:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+    .btn-primary {
+        background: var(--primary);
+        color: #FFFFFF;
+    }
+    .btn-primary:hover {
+        background: var(--primary-dark);
+    }
+    .btn-primary:disabled {
+        background: #94A3B8;
+        color: #F1F5F9;
+        cursor: not-allowed;
+        opacity: 0.75;
+    }
+    .btn-secondary {
+        background: var(--surface);
+        border-color: var(--border-strong);
+        color: var(--text-main);
+    }
+    .btn-secondary:hover {
+        background: var(--surface-sunken);
+        border-color: var(--text-muted);
+    }
+    .btn-secondary.active {
+        background: var(--primary-light);
+        border-color: var(--primary);
+        color: var(--primary-dark);
+        font-weight: 600;
+    }
+    .btn-sm {
+        height: 28px;
+        padding: 0 10px;
+        font-size: 12px;
+        border-radius: 5px;
+    }
 
     /* Input Source Selector Cards */
-    .source-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
-    .source-card { border: 1px solid var(--border); border-radius: 5px; padding: 10px; cursor: pointer; text-align: center; background: #fff; transition: all 0.15s ease; }
-    .source-card:hover { border-color: #94a3b8; }
-    .source-card.active { border-color: var(--primary); background: #f0f9ff; }
-    .source-card-title { font-weight: 700; font-size: 11px; color: var(--text-main); }
-    .source-card.active .source-card-title { color: var(--primary-dark); }
-    .source-card-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .source-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .source-card {
+        border: 1px solid var(--border-strong);
+        border-radius: 6px;
+        padding: 10px 8px;
+        cursor: pointer;
+        text-align: center;
+        background: var(--surface);
+        transition: all 120ms ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        outline: none;
+    }
+    .source-card:hover {
+        border-color: var(--text-muted);
+        background: var(--surface-sunken);
+    }
+    .source-card.active {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        box-shadow: 0 0 0 1px var(--primary);
+    }
+    .source-card:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+    .source-card-title {
+        font-weight: 600;
+        font-size: 12px;
+        color: var(--text-main);
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .source-card.active .source-card-title {
+        color: var(--primary-dark);
+    }
+    .source-card-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
 
     /* Dropzone */
-    .drop-zone { border: 2px dashed #cbd5e1; border-radius: 6px; padding: 22px 14px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.15s ease; margin-bottom: 14px; }
-    .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #f0f9ff; }
-    .drop-icon { font-size: 24px; margin-bottom: 6px; opacity: 0.8; }
-    .drop-text { font-size: 12px; font-weight: 600; color: var(--text-main); }
-    .drop-hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    .drop-zone {
+        border: 2px dashed var(--border-strong);
+        border-radius: 8px;
+        padding: 28px 16px;
+        text-align: center;
+        background: var(--surface-sunken);
+        cursor: pointer;
+        transition: all 120ms ease;
+        margin-bottom: 16px;
+        outline: none;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+        border-color: var(--primary);
+        background: var(--primary-light);
+    }
+    .drop-zone:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+    .drop-icon {
+        font-size: 24px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: center;
+    }
+    .drop-text {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+    .drop-hint {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
 
     /* Viewport & Scanning Animation */
-    .viewport-box { position: relative; border: 1px solid var(--border); border-radius: 6px; background: #111827; min-height: 420px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .viewport-box {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #0B1F33;
+        min-height: 420px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
     .viewport-box img { max-width: 100%; max-height: 480px; object-fit: contain; }
-    .scanning-beam { position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, transparent, #38bdf8, #0284c7, #38bdf8, transparent); box-shadow: 0 0 16px #38bdf8; display: none; z-index: 20; pointer-events: none; }
+    .scanning-beam {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, transparent, var(--accent-on-dark), var(--primary), var(--accent-on-dark), transparent);
+        box-shadow: 0 0 16px rgba(45,212,191,0.6);
+        display: none;
+        z-index: 20;
+        pointer-events: none;
+    }
     @keyframes scanPass { 0% { left: 0%; } 100% { left: 100%; } }
     .scanning-active .scanning-beam { display: block; animation: scanPass 2.2s ease-in-out infinite alternate; }
 
     /* Processing Stepper */
     .stepper-container { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-    .stepper-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; }
+    .stepper-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 12px;
+    }
     .step-name { display: flex; align-items: center; gap: 8px; font-weight: 500; }
-    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
-    .step-dot.active { background: #0284c7; box-shadow: 0 0 6px #0284c7; }
-    .step-dot.done { background: #16a34a; }
+    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #CBD5E1; }
+    .step-dot.active { background: var(--primary); box-shadow: 0 0 0 3px rgba(15,118,110,0.25); }
+    .step-dot.done { background: var(--success); }
     .step-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
 
     /* ECG Clinical Paper Canvas */
-    .ecg-canvas-container { position: relative; border: 1px solid #f43f5e; border-radius: 4px; background: #fffcf9; overflow: hidden; cursor: crosshair; }
+    .ecg-canvas-container { position: relative; border: 1px solid #F43F5E; border-radius: 6px; background: #FFFCF9; overflow: hidden; cursor: crosshair; }
     canvas.ecg-paper { display: block; width: 100%; height: auto; }
 
     /* Coordinate Readout Box */
-    .coord-readout-card { background: #0f172a; color: #f8fafc; border-radius: 5px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    .coord-readout-card {
+        background: #0B1F33;
+        color: #F8FAFC;
+        border: 1px solid var(--chrome-line);
+        border-radius: 8px;
+        padding: 12px 18px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
     .coord-item { display: flex; flex-direction: column; }
-    .coord-label { font-size: 10px; text-transform: uppercase; color: #94a3b8; }
-    .coord-value { font-size: 14px; font-weight: 700; color: #38bdf8; }
+    .coord-label { font-size: 11px; text-transform: uppercase; color: var(--on-chrome-muted); letter-spacing: 0.3px; }
+    .coord-value { font-size: 14px; font-weight: 600; color: var(--accent-on-dark); }
 
     /* 12-Lead Clinical Grid Cards */
-    .leads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
-    .lead-card { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 10px; cursor: pointer; transition: all 0.15s ease; position: relative; }
+    .leads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    .lead-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 120ms ease;
+        position: relative;
+        outline: none;
+    }
     .lead-card:hover { border-color: var(--primary); }
-    .lead-card.active { border-color: var(--primary); background: #f0f9ff; box-shadow: 0 0 0 2px rgba(2,132,199,0.2); }
+    .lead-card.active {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        box-shadow: 0 0 0 1px var(--primary);
+    }
+    .lead-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
     .lead-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .lead-name-tag { font-weight: 700; font-size: 13px; font-family: var(--font-mono); }
+    .lead-name-tag { font-weight: 700; font-size: 13px; font-family: var(--font-mono); color: var(--text-main); }
     .lead-sparkline { width: 100%; height: 38px; display: block; }
     .lead-strip-card { grid-column: 1 / -1; }
 
     /* Pill Badges */
-    .pill { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-    .pill-validated { background: var(--validated-bg); color: var(--validated-green); }
-    .pill-experimental { background: var(--experimental-bg); color: var(--experimental-amber); }
+    .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        border: 1px solid transparent;
+    }
+    .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+    .pill-validated { background: var(--success-bg); color: var(--success); border-color: #BBF7D0; }
+    .pill-validated::before { background: var(--success); }
+    .pill-experimental { background: var(--warning-bg); color: var(--warning); border-color: #FDE68A; }
+    .pill-experimental::before { background: var(--warning); }
 
     /* Tables */
-    table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    table.data-table th, table.data-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-    table.data-table th { background: #f8fafc; font-weight: 600; color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
-    table.data-table tr:hover { background: #fafafa; }
+    table.data-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 13px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    table.data-table th, table.data-table td { padding: 10px 14px; text-align: left; }
+    table.data-table th {
+        background: var(--surface-sunken);
+        font-weight: 500;
+        color: var(--text-muted);
+        font-size: 12px;
+        border-bottom: 1px solid var(--border);
+    }
+    table.data-table td {
+        border-bottom: 1px solid var(--border-subtle);
+        color: var(--text-main);
+    }
+    table.data-table tr:last-child td { border-bottom: none; }
+    table.data-table tr:hover td { background: #F8FAFC; }
 
     /* Notice Banner */
-    .notice-banner { background: #fffbeb; border-left: 3px solid #f59e0b; padding: 10px 14px; font-size: 12px; color: #92400e; border-radius: 3px; margin-bottom: 14px; line-height: 1.5; }
+    .notice-banner {
+        background: var(--warning-bg);
+        border: 1px solid #FCD34D;
+        border-left: 3px solid var(--warning);
+        padding: 10px 16px;
+        font-size: 13px;
+        color: #78350F;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        line-height: 1.5;
+    }
 
     /* Modal Dialog */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
-    .modal-box { background: #fff; width: 680px; max-width: 95vw; max-height: 90vh; border-radius: 8px; overflow-y: auto; padding: 22px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; }
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(11,31,51,0.65);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        backdrop-filter: blur(3px);
+    }
+    .modal-box {
+        background: var(--surface);
+        width: 680px;
+        max-width: 95vw;
+        max-height: 90vh;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 24px;
+        box-shadow: 0 12px 32px rgba(11,31,51,0.25);
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 14px;
+        margin-bottom: 18px;
+    }
+
+    /* Inline SVG Icons */
+    .icon {
+        width: 16px;
+        height: 16px;
+        display: inline-block;
+        vertical-align: middle;
+        stroke: currentColor;
+        fill: none;
+        flex-shrink: 0;
+    }
+    .icon-lg {
+        width: 24px;
+        height: 24px;
+    }
+
+    /* Accessibility: Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+        .scanning-active .scanning-beam {
+            display: none !important;
+        }
+    }
+
+    /* Responsive Breakpoints */
+    @media (max-width: 1100px) {
+        .grid-workbench { grid-template-columns: 1fr; }
+        .grid-2 { grid-template-columns: 1fr; }
+        .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        .leads-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 720px) {
+        header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 16px; }
+        .nav-tabs { padding: 0 16px; overflow-x: auto; }
+        main { padding: 16px; }
+        .grid-3 { grid-template-columns: 1fr; }
+        .grid-4 { grid-template-columns: 1fr; }
+        .leads-grid { grid-template-columns: 1fr; }
+        .source-selector { grid-template-columns: 1fr; }
+        .coord-readout-card { gap: 12px; }
+    }
 </style>
 </head>
 <body>
+<!-- SVG Icon Sprite -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+  </symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+  </symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+  </symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/>
+  </symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+  </symbol>
+  <symbol id="i-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+  </symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+  </symbol>
+  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </symbol>
+</svg>
 
 <!-- Header -->
 <header>
@@ -176,24 +676,26 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         </div>
         <div class="brand-subtitle">Jaypee Institute of Information Technology, Noida · Dept. of Electronics & Communication Engineering</div>
     </div>
-    
+    <div class="header-badges">
+        <button class="btn-header" onclick="openAboutModal()">About</button>
+    </div>
 </header>
 
 <!-- Navigation -->
-<div class="nav-tabs">
-    <div class="nav-tab active" onclick="switchWorkstationTab('workbench')">
+<div class="nav-tabs" role="tablist">
+    <div class="nav-tab active" role="tab" tabindex="0" onclick="switchWorkstationTab('workbench')">
         <span class="tab-num">01</span>
         <span>Digitisation Workbench</span>
     </div>
-    <div class="nav-tab" onclick="switchWorkstationTab('explorer')">
+    <div class="nav-tab" role="tab" tabindex="0" onclick="switchWorkstationTab('explorer')">
         <span class="tab-num">02</span>
         <span>Lead Explorer</span>
     </div>
-    <div class="nav-tab" onclick="switchWorkstationTab('synthetic')">
+    <div class="nav-tab" role="tab" tabindex="0" onclick="switchWorkstationTab('synthetic')">
         <span class="tab-num">03</span>
         <span>Synthetic ECG Lab</span>
     </div>
-    <div class="nav-tab" onclick="switchWorkstationTab('evaluation')">
+    <div class="nav-tab" role="tab" tabindex="0" onclick="switchWorkstationTab('evaluation')">
         <span class="tab-num">04</span>
         <span>Evaluation & Export</span>
     </div>
@@ -219,26 +721,26 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
                     <!-- Source Tabs -->
                     <div class="source-selector">
-                        <div class="source-card active" id="src-upload" onclick="selectSourceMode('upload')">
-                            <div class="source-card-title">📁 Upload</div>
+                        <div class="source-card active" id="src-upload" role="tab" tabindex="0" onclick="selectSourceMode('upload')">
+                            <div class="source-card-title"><svg class="icon"><use href="#i-upload"/></svg> Upload</div>
                             <div class="source-card-sub">Local File</div>
                         </div>
-                        <div class="source-card" id="src-sample" onclick="selectSourceMode('sample')">
-                            <div class="source-card-title">🖼️ Real Beat</div>
+                        <div class="source-card" id="src-sample" role="tab" tabindex="0" onclick="selectSourceMode('sample')">
+                            <div class="source-card-title"><svg class="icon"><use href="#i-pulse"/></svg> Real Beat</div>
                             <div class="source-card-sub">Kaggle Sample</div>
                         </div>
-                        <div class="source-card" id="src-synthetic" onclick="selectSourceMode('synthetic')">
-                            <div class="source-card-title">📄 Synthetic</div>
+                        <div class="source-card" id="src-synthetic" role="tab" tabindex="0" onclick="selectSourceMode('synthetic')">
+                            <div class="source-card-title"><svg class="icon"><use href="#i-file"/></svg> Synthetic</div>
                             <div class="source-card-sub">From Lab</div>
                         </div>
                     </div>
 
                     <!-- Alert message box -->
-                    <div id="workbench-alert" style="display:none; background:var(--danger-bg); border:1px solid #fca5a5; color:var(--danger); padding:8px 12px; border-radius:4px; font-size:12px; margin-bottom:12px;"></div>
+                    <div id="workbench-alert" style="display:none; background:var(--danger-bg); border:1px solid #FCA5A5; border-left:3px solid var(--danger); color:var(--danger); padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:14px; font-weight:500;"></div>
 
                     <!-- Mode 1: Upload Dropzone -->
                     <div id="box-upload" class="drop-zone" onclick="document.getElementById('file-upload-input').click()">
-                        <div class="drop-icon">📤</div>
+                        <div class="drop-icon"><svg class="icon icon-lg" style="width:28px;height:28px;color:var(--text-muted);"><use href="#i-upload"/></svg></div>
                         <div class="drop-text">Click or Drag & Drop ECG Image</div>
                         <div class="drop-hint">Supports PNG, JPG, JPEG (Min: 50x50 px)</div>
                         <input type="file" id="file-upload-input" accept="image/png, image/jpeg, image/jpg" style="display:none;" onchange="handleFileDrop(event)">
@@ -259,12 +761,12 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     </div>
 
                     <!-- Mode 3: Synthetic Sheet Note -->
-                    <div id="box-synthetic" style="display:none; margin-bottom:14px; background:#f0f9ff; border:1px solid #bae6fd; padding:10px; border-radius:4px; font-size:12px; color:var(--primary-dark);">
+                    <div id="box-synthetic" style="display:none; margin-bottom:14px; background:var(--primary-light); border:1px solid var(--border-strong); padding:12px; border-radius:6px; font-size:13px; color:var(--primary-dark);">
                         Using active paired synthetic 12-lead paper sheet generated in Section 03.
                     </div>
 
                     <!-- Active Image Readout Card -->
-                    <div style="border:1px solid var(--border); border-radius:4px; padding:10px; background:#f8fafc; margin-bottom:14px;">
+                    <div style="border:1px solid var(--border); border-radius:6px; padding:12px; background:var(--surface-sunken); margin-bottom:16px;">
                         <label>Active Input Metadata</label>
                         <div id="active-meta-text" style="font-family:var(--font-mono); font-size:11px; color:var(--text-main); line-height:1.6;">
                             No input selected. Choose an option above.
@@ -296,7 +798,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     </select>
 
                     <button class="btn btn-primary" id="btn-run-digitize" style="width:100%; padding:10px; font-size:13px; margin-top:4px;" onclick="executeDigitisation()">
-                        ⚡ Digitise ECG
+                        Digitise ECG
                     </button>
                 </div>
             </div>
@@ -357,7 +859,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     </div>
 
                     <!-- Post-Digitisation Handoff Banner -->
-                    <div id="digitize-success-banner" style="display:none; background:#ecfdf5; border:1px solid #10b981; border-radius:4px; padding:12px 16px; margin-top:14px; align-items:center; justify-content:space-between;">
+                    <div id="digitize-success-banner" style="display:none; background:var(--success-bg); border:1px solid #86EFAC; border-left:3px solid var(--success); border-radius:6px; padding:14px 18px; margin-top:16px; align-items:center; justify-content:space-between;">
                         <div>
                             <strong style="color:#047857;">Digitisation Complete:</strong>
                             <span style="color:#065f46; margin-left:6px;" id="digitize-summary-msg">13 leads extracted. Waveforms ready for inspection.</span>
@@ -397,8 +899,8 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     <span class="panel-subtitle" id="large-viewer-scope">VALIDATED (TRAINED DISTRIBUTION)</span>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center;">
-                    <button class="btn btn-secondary btn-sm" id="btn-play-pause" onclick="toggleWaveformPlayback()">▶ Play</button>
-                    <button class="btn btn-secondary btn-sm" onclick="restartWaveformPlayback()">↺ Restart</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-play-pause" onclick="toggleWaveformPlayback()">Play</button>
+                    <button class="btn btn-secondary btn-sm" onclick="restartWaveformPlayback()"><svg class="icon"><use href="#i-rotate"/></svg> Restart</button>
                     <label style="margin:0; font-size:11px; display:inline-flex; align-items:center; gap:4px;">
                         Speed:
                         <select id="playback-speed" style="margin:0; padding:3px 6px; width:auto;" onchange="setPlaybackSpeed(this.value)">
@@ -447,22 +949,22 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     <span style="font-size:11px; color:var(--text-muted);">Pan-Tompkins Derivative QRS Detection & Butterworth 0.5–40 Hz Filter</span>
                 </div>
                 <div class="grid-4" style="text-align:center;">
-                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Heart Rate</div>
                         <div style="font-size:22px; font-weight:700; color:var(--primary); margin-top:2px;" id="metric-hr">-- BPM</div>
                         <div style="font-size:10px; color:var(--text-muted);" id="metric-rhythm-desc">--</div>
                     </div>
-                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">QRS R-Peaks Detected</div>
                         <div style="font-size:22px; font-weight:700; color:var(--text-main); margin-top:2px;" id="metric-peaks">--</div>
                         <div style="font-size:10px; color:var(--text-muted);">Marked on graph</div>
                     </div>
-                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Mean RR Interval</div>
                         <div style="font-size:22px; font-weight:700; color:var(--text-main); margin-top:2px;" id="metric-rr">-- s</div>
                         <div style="font-size:10px; color:var(--text-muted);" id="metric-rr-std">Std: -- s</div>
                     </div>
-                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Signal Quality Index</div>
                         <div style="font-size:22px; font-weight:700; color:var(--validated-green); margin-top:2px;" id="metric-sqi">--</div>
                         <div style="font-size:10px; color:var(--text-muted);" id="metric-duration">Duration: -- s</div>
@@ -498,7 +1000,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 </select>
 
                 <!-- Record Metadata Card -->
-                <div style="border:1px solid var(--border); border-radius:4px; padding:10px; background:#f8fafc; margin-bottom:14px;">
+                <div style="border:1px solid var(--border); border-radius:6px; padding:12px; background:var(--surface-sunken); margin-bottom:16px;">
                     <div style="font-weight:600; font-size:11px; color:var(--text-muted); margin-bottom:4px;">CLINICAL RECORD METADATA</div>
                     <div id="synth-record-info" style="font-family:var(--font-mono); font-size:11px; line-height:1.6;">
                         Record: 00001_lr | 12 Leads | 100 Hz | 10.0 s | 1000 Samples/Lead
@@ -600,22 +1102,22 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
             <!-- Fidelity Metrics Cards -->
             <div class="grid-4" style="text-align:center; margin-bottom:14px;">
-                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Pearson Correlation (r)</div>
                     <div style="font-size:20px; font-weight:700; color:var(--primary); margin-top:2px;" id="eval-pearson">r = --</div>
                     <div style="font-size:10px; color:var(--text-muted);">Target: r > 0.90</div>
                 </div>
-                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Root Mean Square Error</div>
                     <div style="font-size:20px; font-weight:700; color:var(--validated-green); margin-top:2px;" id="eval-rmse">-- mV</div>
                     <div style="font-size:10px; color:var(--text-muted);">Target: < 0.25 mV</div>
                 </div>
-                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Signal-to-Noise Ratio</div>
                     <div style="font-size:20px; font-weight:700; color:var(--text-main); margin-top:2px;" id="eval-snr">-- dB</div>
                     <div style="font-size:10px; color:var(--text-muted);">Residual noise fidelity</div>
                 </div>
-                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
+                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Trace Completeness</div>
                     <div style="font-size:20px; font-weight:700; color:var(--primary); margin-top:2px;" id="eval-comp">--%</div>
                     <div style="font-size:10px; color:var(--text-muted);">No trace dropouts</div>
@@ -642,25 +1144,25 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             </div>
             <div class="grid-4">
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:6px;">📊</div>
+                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-chart"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Unified Multi-Lead CSV</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Time-series with header metadata</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="downloadCSVExport()">Download CSV</button>
                 </div>
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:6px;">📦</div>
+                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-package"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">WFDB-Format Archive</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Standard .hea header & data bundle</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="downloadWfdbExport()">Export WFDB</button>
                 </div>
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:6px;">📋</div>
+                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-clipboard"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Printable Clinical Report</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Formatted HTML diagnostic summary</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="openPrintableReport()">Print / Save HTML</button>
                 </div>
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:6px;">📄</div>
+                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-file"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Structured JSON Report</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Machine-readable diagnostic schema</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="downloadJsonReport()">Download JSON</button>
@@ -675,7 +1177,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     <div class="modal-box" onclick="event.stopPropagation()">
         <div class="modal-header">
             <span class="panel-title">ECG DigiAI — System Architecture & Academic Provenance</span>
-            <button class="btn-header" onclick="closeAboutModal()">✕</button>
+            <button class="btn-header" onclick="closeAboutModal()" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
         </div>
         <div style="font-size:12px; line-height:1.7; color:var(--text-main);">
             <div style="margin-bottom:12px;">
@@ -803,7 +1305,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         alertBox.style.display = 'none';
 
         if (!file.type.startsWith('image/')) {
-            alertBox.innerText = '❌ Error: Uploaded file is not an image format (PNG, JPG required).';
+            alertBox.innerText = 'Error: Uploaded file is not an image format (PNG, JPG required).';
             alertBox.style.display = 'block';
             return;
         }
@@ -814,7 +1316,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const testImg = new Image();
             testImg.onload = async function() {
                 if (testImg.naturalWidth < 50 || testImg.naturalHeight < 50) {
-                    alertBox.innerText = `❌ Error: Image dimensions too small (${testImg.naturalWidth}x${testImg.naturalHeight} px). Minimum required resolution is 50x50 px.`;
+                    alertBox.innerText = `Error: Image dimensions too small (${testImg.naturalWidth}x${testImg.naturalHeight} px). Minimum required resolution is 50x50 px.`;
                     alertBox.style.display = 'block';
                     return;
                 }
@@ -859,7 +1361,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const isSingle = (data.suggested_layout === 'single_lead');
             setWorkbenchImage("data:image/png;base64," + data.image_b64, filename, data.width, data.height, data.suggested_layout, isSingle);
         } catch (err) {
-            alertBox.innerText = '❌ Failed to load curated sample: ' + err.message;
+            alertBox.innerText = 'Error: Failed to load curated sample: ' + err.message;
             alertBox.style.display = 'block';
         }
     }
@@ -924,7 +1426,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
         const runBtn = document.getElementById('btn-run-digitize');
         runBtn.disabled = true;
-        runBtn.innerText = '⏳ Processing...';
+        runBtn.innerText = 'Processing...';
 
         // Trigger visual scanning animation
         const viewportBox = document.getElementById('viewport-box');
@@ -987,7 +1489,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const layoutInfo = `[Active: ${getLayoutDisplayTitle(data.active_layout)}${data.is_layout_overridden ? ' — Manual Override' : ''}]`;
             let warnMsg = '';
             if (data.is_layout_ambiguous) {
-                warnMsg = ' ⚠️ Layout detection confidence moderate; verify alignment.';
+                warnMsg = ' Note: Layout detection confidence moderate; verify alignment.';
             }
 
             if (leadCount === 1) {
@@ -1004,13 +1506,13 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             document.getElementById('digitize-success-banner').style.display = 'flex';
 
         } catch (err) {
-            alertBox.innerText = '❌ Digitisation Pipeline Error: ' + err.message;
+            alertBox.innerText = 'Error: Digitisation Pipeline Error: ' + err.message;
             alertBox.style.display = 'block';
             setStep(2, 'error', 'Error');
         } finally {
             viewportBox.classList.remove('scanning-active');
             runBtn.disabled = false;
-            runBtn.innerText = '⚡ Digitise ECG';
+            runBtn.innerText = 'Digitise ECG';
         }
     }
 
@@ -1175,8 +1677,9 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             : 'Uncalibrated Waveform Inspection (Nominal mV Estimates)';
         document.getElementById('large-viewer-title').innerText = `LEAD ${leadName} — ${calLabel}`;
         document.getElementById('large-viewer-scope').innerText = leadObj.is_trained_lead
-            ? '✓ VALIDATED (TRAINED RESNET-U-NET DISTRIBUTION)'
-            : '⚠ EXPERIMENTAL (ZERO-SHOT RECEPTIVE-FIELD TRANSFER)';
+            ? 'VALIDATED (TRAINED RESNET-U-NET DISTRIBUTION)'
+            : 'EXPERIMENTAL (ZERO-SHOT RECEPTIVE-FIELD TRANSFER)';
+        document.getElementById('large-viewer-scope').className = 'pill ' + (leadObj.is_trained_lead ? 'pill-validated' : 'pill-experimental');
 
         restartWaveformPlayback();
         fetchLeadRhythmAnalysis(leadName);
@@ -1186,7 +1689,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     function restartWaveformPlayback() {
         playbackCurrentSample = 0;
         isPlaying = true;
-        document.getElementById('btn-play-pause').innerText = '⏸ Pause';
+        document.getElementById('btn-play-pause').innerText = 'Pause';
         if (animationInterval) clearInterval(animationInterval);
 
         const leadObj = currentDigitizedData?.leads?.[activeLeadName];
@@ -1202,7 +1705,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             if (playbackCurrentSample >= totalSamples) {
                 playbackCurrentSample = totalSamples;
                 isPlaying = false;
-                document.getElementById('btn-play-pause').innerText = '▶ Play';
+                document.getElementById('btn-play-pause').innerText = 'Play';
                 clearInterval(animationInterval);
             }
             renderECGCanvas();
@@ -1211,7 +1714,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
     function toggleWaveformPlayback() {
         isPlaying = !isPlaying;
-        document.getElementById('btn-play-pause').innerText = isPlaying ? '⏸ Pause' : '▶ Play';
+        document.getElementById('btn-play-pause').innerText = isPlaying ? 'Pause' : 'Play';
         if (isPlaying && playbackCurrentSample >= (currentDigitizedData?.leads?.[activeLeadName]?.voltage_mv?.length || 250)) {
             restartWaveformPlayback();
         }
@@ -1515,7 +2018,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             currentGroundTruthData = gt;
 
             if (!gt.available) {
-                noticeBox.innerText = "ℹ️ Unpaired Real ECG Input: This record was loaded from an uncalibrated real beat crop. Gold-standard digital waveform vectors are scientifically unavailable for this sample. Morphological correlation and RMSE are properly omitted.";
+                noticeBox.innerText = "Notice: Unpaired Real ECG Input: This record was loaded from an uncalibrated real beat crop. Gold-standard digital waveform vectors are scientifically unavailable for this sample. Morphological correlation and RMSE are properly omitted.";
                 noticeBox.style.display = 'block';
                 document.getElementById('eval-pearson').innerText = 'N/A (Unpaired)';
                 document.getElementById('eval-rmse').innerText = 'N/A';
