@@ -20,7 +20,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, PchipInterpolator
 
 from ecg_digitization.data.types import CanonicalECGSignal, LeadSignal
 from ecg_digitization.reconstruction.extractor import ExtractedTrace
@@ -147,7 +147,9 @@ class ReconstructedECG:
         ]
         num_leads = len(ordered_keys)
 
-        fig, axes = plt.subplots(num_leads, 1, figsize=(11, 1.3 * max(num_leads, 1)), sharex=False)
+        # Proportional figure sizing: single lead gets 4.5 inches height, multi-lead gets 1.5 in/lead
+        fig_height = 4.5 if num_leads == 1 else max(3.5, 1.5 * num_leads)
+        fig, axes = plt.subplots(num_leads, 1, figsize=(11, fig_height), sharex=False)
         if num_leads == 1:
             axes = [axes]
 
@@ -155,17 +157,30 @@ class ReconstructedECG:
 
         for ax, name in zip(axes, ordered_keys):
             lead = self.leads[name]
-            trace_color = "#137333" if lead.is_trained_lead else "#1a73e8"
-            ax.plot(lead.time_seconds, lead.voltage_mv, color=trace_color, linewidth=1.1)
+            trace_color = "#0f766e" if lead.is_trained_lead else "#1a73e8"
+            ax.plot(lead.time_seconds, lead.voltage_mv, color=trace_color, linewidth=1.3)
 
             tag = "[Validated]" if lead.is_trained_lead else "[Experimental]"
-            ax.set_ylabel(f"{name}\n{tag}", fontsize=7, color="#202124")
-            ax.grid(True, linestyle=":", alpha=0.5)
-            ax.set_ylim(-1.5, 2.0)
+            ax.set_ylabel(f"{name}\n{tag}", fontsize=8, color="#0f172a", fontweight="bold")
+            ax.grid(True, linestyle=":", alpha=0.6, color="#cbd5e1")
 
-        axes[-1].set_xlabel(f"Time (seconds) — {cal_status_str}", fontsize=9)
+            # Adaptive y-limits preserving zero baseline and signal extrema without clipping
+            vals = lead.voltage_mv
+            if len(vals) > 0:
+                v_min = float(np.min(vals))
+                v_max = float(np.max(vals))
+                span = max(0.5, v_max - v_min)
+                margin = max(0.15, span * 0.12)
+                ax.set_ylim(min(v_min - margin, -0.2), max(v_max + margin, 0.2))
+            else:
+                ax.set_ylim(-1.0, 1.0)
+
+            # Mark zero baseline
+            ax.axhline(0, color="#94a3b8", linestyle="-", linewidth=0.8, alpha=0.7)
+
+        axes[-1].set_xlabel(f"Time (seconds) — {cal_status_str}", fontsize=9, color="#475569")
         full_title = f"{title}\nGreen: Formally Validated Leads (II, V1) | Blue: Experimental Leads | Status: {cal_status_str}"
-        fig.suptitle(full_title, fontsize=10, y=0.995)
+        fig.suptitle(full_title, fontsize=10, y=0.995, color="#0f172a")
         plt.tight_layout()
         fig.savefig(str(out), dpi=150, bbox_inches="tight")
         plt.close(fig)
@@ -192,11 +207,18 @@ class SignalReconstructor:
         if target_num_samples <= 1:
             target_num_samples = 2
 
-        orig_time = np.linspace(0, duration_s, num_px)
         target_time = np.arange(target_num_samples, dtype=np.float32) / self.cal.target_fs_hz
 
-        interp_func = interp1d(orig_time, raw_mv, kind="linear", fill_value="extrapolate")
-        resampled_mv = interp_func(target_time).astype(np.float32)
+        if num_px == target_num_samples:
+            resampled_mv = raw_mv.astype(np.float32)
+        elif num_px > 2:
+            orig_time = np.linspace(0.0, float(duration_s), num_px, dtype=np.float64)
+            pchip = PchipInterpolator(orig_time, raw_mv.astype(np.float64), extrapolate=True)
+            resampled_mv = pchip(target_time.astype(np.float64)).astype(np.float32)
+        else:
+            orig_time = np.linspace(0.0, float(duration_s), num_px, dtype=np.float32)
+            interp_func = interp1d(orig_time, raw_mv, kind="linear", fill_value="extrapolate")
+            resampled_mv = interp_func(target_time).astype(np.float32)
 
         return ReconstructedLead(
             lead_name=trace.lead_name,

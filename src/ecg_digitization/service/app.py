@@ -94,6 +94,11 @@ class AnalyzeRequest(BaseModel):
     lead_name: Optional[str] = None
 
 
+class FocusedOverlayRequest(BaseModel):
+    record_id: str = "demo_00001"
+    selected_lead: Optional[str] = None
+
+
 # --- Helper utilities ---
 def encode_img_b64(img: np.ndarray) -> str:
     success, buf = cv2.imencode(".png", img)
@@ -385,9 +390,11 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
         calibration_note=cal_note,
     )
 
-    # Save visualization plot, diagnostic sheet overlay, and unified CSV
+    # Save visualization plot, diagnostic sheet overlay, unified CSV, QRS overlay, and uncertainty overlay
     plot_b64 = ""
     overlay_b64 = ""
+    qrs_b64 = ""
+    uncertainty_b64 = ""
     try:
         temp_plot = Path("data/interim") / f"plot_{rec_id}.png"
         digit_res.reconstructed_ecg.save_plot(temp_plot)
@@ -400,6 +407,18 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
         if temp_overlay.is_file():
             with open(temp_overlay, "rb") as f:
                 overlay_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        temp_qrs = Path("data/interim") / f"qrs_overlay_{rec_id}.png"
+        digit_res.generate_qrs_overlay(temp_qrs)
+        if temp_qrs.is_file():
+            with open(temp_qrs, "rb") as f:
+                qrs_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        temp_uncert = Path("data/interim") / f"uncertainty_overlay_{rec_id}.png"
+        digit_res.generate_uncertainty_overlay(temp_uncert)
+        if temp_uncert.is_file():
+            with open(temp_uncert, "rb") as f:
+                uncertainty_b64 = base64.b64encode(f.read()).decode("utf-8")
 
         # Export unified multi-lead CSV
         csv_dir = Path("data/interim/session1_demo_output")
@@ -435,12 +454,23 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
             report = evaluate_digitization_fidelity(gt_leads, rec_leads, record_id=rec_id)
             fidelity_metrics = report.to_dict()
 
+    # Per-lead trace fidelity diagnostics
+    diagnostics_by_lead = {}
+    for name, trace in digit_res.extracted_traces.items():
+        if trace and trace.fidelity_diagnostics:
+            diagnostics_by_lead[name] = trace.fidelity_diagnostics.to_dict()
+        else:
+            diagnostics_by_lead[name] = None
+
     # Cache reconstructed signal in session
     session_records[rec_id] = session_records.get(rec_id, {})
     session_records[rec_id]["digit_result"] = digit_res
     session_records[rec_id]["plot_b64"] = plot_b64
     session_records[rec_id]["sheet_overlay_b64"] = overlay_b64
+    session_records[rec_id]["qrs_overlay_b64"] = qrs_b64
+    session_records[rec_id]["uncertainty_overlay_b64"] = uncertainty_b64
     session_records[rec_id]["fidelity_metrics"] = fidelity_metrics
+    session_records[rec_id]["diagnostics_by_lead"] = diagnostics_by_lead
 
     # Serialize lead waveforms for interactive preview
     leads_data = {}
@@ -474,11 +504,30 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
         "binary_trace_b64": encode_img_b64(digit_res.preprocessed.binary_trace),
         "plot_b64": plot_b64,
         "sheet_overlay_b64": overlay_b64,
+        "qrs_overlay_b64": qrs_b64,
+        "uncertainty_overlay_b64": uncertainty_b64,
+        "trace_fidelity_diagnostics": diagnostics_by_lead,
         "leads": leads_data,
         "is_calibration_reliable": is_cal_reliable,
         "calibration_note": cal_note,
         "fidelity_metrics": fidelity_metrics,
     }
+
+
+@app.post("/api/overlay-fidelity")
+def get_focused_fidelity_overlay(req: FocusedOverlayRequest) -> Dict[str, Any]:
+    """Generates focused uncertainty overlay for a specific lead or full sheet."""
+    rec_id = req.record_id
+    if rec_id not in session_records or "digit_result" not in session_records[rec_id]:
+        raise HTTPException(status_code=404, detail=f"No record '{rec_id}' found in session.")
+
+    digit_res = session_records[rec_id]["digit_result"]
+    lead = req.selected_lead if (req.selected_lead and req.selected_lead != "ALL") else None
+    temp_p = Path("data/interim") / f"uncertainty_{rec_id}_{lead or 'all'}.png"
+    digit_res.generate_uncertainty_overlay(temp_p, selected_lead=lead)
+    with open(temp_p, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("utf-8")
+    return {"uncertainty_overlay_b64": b64, "selected_lead": lead}
 
 
 @app.post("/api/analyze")
@@ -631,13 +680,23 @@ async def api_import_csv(request: Request) -> Dict[str, Any]:
         csv_text = body.get("csv_text", "")
         rec_id = body.get("record_id") or body.get("filename", "imported_ecg").replace(".csv", "")
     elif "multipart/form-data" in content_type:
-        form = await request.form()
-        upload_file = form.get("file")
-        if upload_file is not None and hasattr(upload_file, "read"):
-            content_bytes = await upload_file.read()
-            csv_text = content_bytes.decode("utf-8", errors="replace")
-            filename = getattr(upload_file, "filename", "imported_ecg")
-            rec_id = Path(filename).stem.replace("_signal", "")
+        try:
+            form = await request.form()
+            upload_file = form.get("file")
+            if upload_file is not None and hasattr(upload_file, "read"):
+                content_bytes = await upload_file.read()
+                csv_text = content_bytes.decode("utf-8", errors="replace")
+                filename = getattr(upload_file, "filename", "imported_ecg")
+                rec_id = Path(filename).stem.replace("_signal", "")
+        except Exception:
+            body_bytes = await request.body()
+            raw_str = body_bytes.decode("utf-8", errors="replace")
+            if 'name="file"' in raw_str:
+                parts = raw_str.split("\r\n\r\n", 1)
+                if len(parts) > 1:
+                    csv_text = parts[1].split("\r\n--", 1)[0]
+            else:
+                csv_text = raw_str
     else:
         body_bytes = await request.body()
         csv_text = body_bytes.decode("utf-8", errors="replace")

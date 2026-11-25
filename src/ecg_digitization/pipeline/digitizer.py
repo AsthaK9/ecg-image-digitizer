@@ -168,6 +168,198 @@ class DigitizationPipelineResult:
         logger.info("Saved 12-lead sheet diagnostic overlay: %s", out)
         return out
 
+    def generate_qrs_overlay(self, output_path: Union[str, Path]) -> Path:
+        """Generates dedicated QRS Detection Overlay with detected complexes, R-peaks, and Q/S boundaries."""
+        from ecg_digitization.inference.analyzer import ECGRhythmAnalyzer
+
+        analyzer = ECGRhythmAnalyzer(target_fs_hz=100.0)
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+
+        overlay_img = self.preprocessed.deskewed.copy()
+        if len(overlay_img.shape) == 2:
+            overlay_img = cv2.cvtColor(overlay_img, cv2.COLOR_GRAY2BGR)
+
+        h, w = overlay_img.shape[:2]
+        qrs_layer = overlay_img.copy()
+
+        for name, region in self.layout.leads.items():
+            rec_lead = self.reconstructed_ecg.leads.get(name)
+            trace = self.extracted_traces.get(name)
+            if rec_lead is None or trace is None or len(rec_lead.voltage_mv) < 15:
+                continue
+
+            duration_s = max(0.1, float(rec_lead.duration_seconds))
+            x_start = region.x1 + trace.active_start_col
+            x_end = region.x1 + trace.active_end_col
+            col_span = max(1, x_end - x_start)
+
+            complexes = analyzer.detect_qrs_complexes(rec_lead.voltage_mv, lead_name=name)
+
+            for c in complexes:
+                r_col = int(round(x_start + (c.r_time_s / duration_s) * col_span))
+                r_col = max(region.x1, min(region.x2, r_col))
+
+                trace_idx = int(round((c.r_time_s / duration_s) * (len(trace.pixel_trajectory) - 1)))
+                trace_idx = max(0, min(len(trace.pixel_trajectory) - 1, trace_idx))
+                r_y = int(round(region.y1 + trace.pixel_trajectory[trace_idx]))
+                r_y = max(region.y1, min(region.y2, r_y))
+
+                # Shaded QRS interval corridor
+                if c.q_time_s is not None and c.s_time_s is not None:
+                    q_col = int(round(x_start + (c.q_time_s / duration_s) * col_span))
+                    s_col = int(round(x_start + (c.s_time_s / duration_s) * col_span))
+                else:
+                    q_col = int(round(x_start + (max(0.0, c.r_time_s - 0.04) / duration_s) * col_span))
+                    s_col = int(round(x_start + (min(duration_s, c.r_time_s + 0.04) / duration_s) * col_span))
+
+                q_col = max(region.x1, min(region.x2, q_col))
+                s_col = max(region.x1, min(region.x2, s_col))
+
+                shade_color = (200, 245, 200) if c.confidence > 0.8 else (240, 240, 200)
+                cv2.rectangle(qrs_layer, (q_col, region.y1), (s_col, region.y2), shade_color, -1)
+
+                # Mark Q onset (Amber)
+                if c.q_idx is not None and c.q_time_s is not None:
+                    q_c = int(round(x_start + (c.q_time_s / duration_s) * col_span))
+                    q_tr = max(0, min(len(trace.pixel_trajectory) - 1, int(round((c.q_time_s / duration_s) * (len(trace.pixel_trajectory) - 1)))))
+                    q_y = int(round(region.y1 + trace.pixel_trajectory[q_tr]))
+                    cv2.circle(overlay_img, (q_c, q_y), 3, (0, 165, 255), -1, cv2.LINE_AA)
+                    cv2.putText(overlay_img, "Q", (q_c - 5, q_y + 11), cv2.FONT_HERSHEY_SIMPLEX, 0.30, (0, 140, 220), 1, cv2.LINE_AA)
+
+                # Mark S offset (Blue)
+                if c.s_idx is not None and c.s_time_s is not None:
+                    s_c = int(round(x_start + (c.s_time_s / duration_s) * col_span))
+                    s_tr = max(0, min(len(trace.pixel_trajectory) - 1, int(round((c.s_time_s / duration_s) * (len(trace.pixel_trajectory) - 1)))))
+                    s_y = int(round(region.y1 + trace.pixel_trajectory[s_tr]))
+                    cv2.circle(overlay_img, (s_c, s_y), 3, (255, 120, 0), -1, cv2.LINE_AA)
+                    cv2.putText(overlay_img, "S", (s_c + 2, s_y + 11), cv2.FONT_HERSHEY_SIMPLEX, 0.30, (220, 100, 0), 1, cv2.LINE_AA)
+
+                # Mark R-peak
+                peak_label = "QS" if c.is_inverted else "R"
+                cv2.circle(overlay_img, (r_col, r_y), 5, (20, 20, 230), -1, cv2.LINE_AA)
+                cv2.circle(overlay_img, (r_col, r_y), 7, (255, 255, 255), 1, cv2.LINE_AA)
+                lbl_y = r_y + 14 if c.is_inverted else r_y - 8
+                cv2.putText(overlay_img, peak_label, (r_col - 4, lbl_y), cv2.FONT_HERSHEY_SIMPLEX, 0.36, (20, 20, 230), 1, cv2.LINE_AA)
+
+        cv2.addWeighted(qrs_layer, 0.30, overlay_img, 0.70, 0, overlay_img)
+
+        # Draw lead region bounding frames
+        for name, region in self.layout.leads.items():
+            cv2.rectangle(overlay_img, (region.x1, region.y1), (region.x2, region.y2), (180, 180, 180), 1)
+            cv2.putText(overlay_img, name, (region.x1 + 4, region.y1 + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (80, 80, 80), 1, cv2.LINE_AA)
+
+        banner_h = 32
+        banner = np.full((banner_h, w, 3), 245, dtype=np.uint8)
+        cv2.line(banner, (0, banner_h - 1), (w, banner_h - 1), (200, 200, 200), 1)
+        banner_text = "ECG DigiAI QRS Detection Overlay | Red: R-Peak / Apex | Amber: Q-Onset | Blue: S-Offset | Shaded: QRS Region"
+        cv2.putText(banner, banner_text, (10, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (20, 20, 20), 1, cv2.LINE_AA)
+
+        combined = np.vstack([banner, overlay_img])
+        cv2.imwrite(str(out), combined)
+        logger.info("Saved QRS detection overlay: %s", out)
+        return out
+
+    def generate_uncertainty_overlay(
+        self,
+        output_path: Union[str, Path],
+        selected_lead: Optional[str] = None,
+    ) -> Path:
+        """Generates dedicated Trace Fidelity & Uncertainty Overlay.
+
+        Visualizes directly observed ink vs. interpolated segments, highlights
+        multi-path ambiguous regions, and shows QRS detections with confidence.
+        """
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+
+        overlay_img = self.preprocessed.deskewed.copy()
+        if len(overlay_img.shape) == 2:
+            overlay_img = cv2.cvtColor(overlay_img, cv2.COLOR_GRAY2BGR)
+
+        h, w = overlay_img.shape[:2]
+        highlight_layer = overlay_img.copy()
+
+        # 1. First pass: highlight ambiguous multi-path regions
+        for name, region in self.layout.leads.items():
+            if selected_lead and name != selected_lead:
+                continue
+            trace = self.extracted_traces.get(name)
+            if not trace or not trace.fidelity_diagnostics:
+                continue
+            diag = trace.fidelity_diagnostics
+            x_start = region.x1 + trace.active_start_col
+
+            for r_st, r_en in diag.ambiguous_regions:
+                x_a = max(region.x1, min(region.x2, x_start + r_st))
+                x_b = max(region.x1, min(region.x2, x_start + r_en + 1))
+                cv2.rectangle(highlight_layer, (x_a, region.y1), (x_b, region.y2), (0, 215, 255), -1)
+
+        cv2.addWeighted(highlight_layer, 0.28, overlay_img, 0.72, 0, overlay_img)
+
+        # 2. Second pass: render lead bounding boxes, observed vs interpolated trajectory segments
+        for name, region in self.layout.leads.items():
+            is_active_target = (selected_lead is None or name == selected_lead)
+            trace = self.extracted_traces.get(name)
+
+            box_col = (0, 160, 240) if (selected_lead and name == selected_lead) else (180, 180, 180)
+            box_thick = 2 if (selected_lead and name == selected_lead) else 1
+            cv2.rectangle(overlay_img, (region.x1, region.y1), (region.x2, region.y2), box_col, box_thick)
+
+            lbl = f"{name} [Focus]" if (selected_lead and name == selected_lead) else name
+            cv2.putText(overlay_img, lbl, (region.x1 + 4, region.y1 + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (60, 60, 60), 1, cv2.LINE_AA)
+
+            if not trace or len(trace.pixel_trajectory) == 0:
+                continue
+
+            diag = trace.fidelity_diagnostics
+            traj = trace.pixel_trajectory
+            n_pts = len(traj)
+            x_start = region.x1 + trace.active_start_col
+            x_end = region.x1 + trace.active_end_col
+            x_coords = np.linspace(x_start, x_end, n_pts)
+            y_coords = region.y1 + traj
+
+            # Trace segments: green for directly observed ink, amber/orange for interpolated gaps
+            obs_mask = diag.observed_mask if (diag and len(diag.observed_mask) == n_pts) else [True] * n_pts
+
+            for i in range(n_pts - 1):
+                pt1 = (int(round(x_coords[i])), int(round(y_coords[i])))
+                pt2 = (int(round(x_coords[i + 1])), int(round(y_coords[i + 1])))
+                is_obs = obs_mask[i] and obs_mask[i + 1]
+
+                seg_color = (0, 180, 20) if is_obs else (0, 120, 255)  # Green vs Amber
+                thick = 2 if is_active_target else 1
+                cv2.line(overlay_img, pt1, pt2, seg_color, thick, cv2.LINE_AA)
+
+            # 3. Third pass: QRS detections with confidence
+            if diag and is_active_target:
+                for c in diag.qrs_complexes:
+                    r_x = int(round(x_start + c.peak_col))
+                    r_y = int(round(region.y1 + c.peak_y))
+                    r_x = max(region.x1, min(region.x2, r_x))
+                    r_y = max(region.y1, min(region.y2, r_y))
+
+                    qrs_color = (20, 20, 230) if c.is_high_confidence else (0, 140, 255)
+                    cv2.circle(overlay_img, (r_x, r_y), 4, qrs_color, -1, cv2.LINE_AA)
+                    cv2.circle(overlay_img, (r_x, r_y), 6, (255, 255, 255), 1, cv2.LINE_AA)
+
+                    conf_str = f"R {int(c.confidence * 100)}%" if c.is_high_confidence else f"R? {int(c.confidence * 100)}%"
+                    cv2.putText(overlay_img, conf_str, (r_x - 12, r_y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.32, qrs_color, 1, cv2.LINE_AA)
+
+        banner_h = 32
+        banner = np.full((banner_h, w, 3), 245, dtype=np.uint8)
+        cv2.line(banner, (0, banner_h - 1), (w, banner_h - 1), (200, 200, 200), 1)
+
+        sel_str = f" [Focus: Lead {selected_lead}]" if selected_lead else ""
+        banner_text = f"ECG DigiAI Trace Fidelity Overlay{sel_str} | Green: Observed Ink | Amber: Interpolated Gap | Shaded: Multi-Path Ambiguity"
+        cv2.putText(banner, banner_text, (10, 21), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (20, 20, 20), 1, cv2.LINE_AA)
+
+        combined = np.vstack([banner, overlay_img])
+        cv2.imwrite(str(out), combined)
+        logger.info("Saved trace fidelity overlay: %s", out)
+        return out
+
     def save_artifacts(
         self,
         output_dir: Union[str, Path],

@@ -180,15 +180,25 @@ class LeadLayoutDetector:
 
         if image is not None:
             canv_y1, canv_y2, canv_x1, canv_x2, mode = self.detect_active_canvas(image)
-            # If color_grid extends across full image, apply standard clinical 10mm paper margins
+            # Apply standard clinical paper margins only if the outer boundary is blank margin space
+            # (i.e. no genuine waveform ink or grid features reach the absolute outer image border).
+            gray_full = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+            ink_full = (gray_full < 120)
+            nom_margin_y = int(round(h * (10.0 / 210.0)))
+            nom_margin_x = int(round(w * (10.0 / 280.0)))
+
             if canv_y1 <= int(0.015 * h):
-                canv_y1 = int(round(h * (10.0 / 210.0)))
+                top_ink = int(np.sum(ink_full[:nom_margin_y, :]))
+                canv_y1 = nom_margin_y if top_ink < 15 else 0
             if canv_y2 >= int(0.985 * h):
-                canv_y2 = h - int(round(h * (10.0 / 210.0)))
+                bot_ink = int(np.sum(ink_full[h - nom_margin_y:, :]))
+                canv_y2 = (h - nom_margin_y) if bot_ink < 15 else h
             if canv_x1 <= int(0.025 * w):
-                canv_x1 = int(round(w * (10.0 / 280.0)))
+                left_ink = int(np.sum(ink_full[:, :nom_margin_x]))
+                canv_x1 = nom_margin_x if left_ink < 15 else 0
             if canv_x2 >= int(0.975 * w):
-                canv_x2 = w - int(round(w * (10.0 / 280.0)))
+                right_ink = int(np.sum(ink_full[:, w - nom_margin_x:]))
+                canv_x2 = (w - nom_margin_x) if right_ink < 15 else w
 
             margin_y = canv_y1
             margin_x = canv_x1
@@ -328,25 +338,52 @@ class LeadLayoutDetector:
                     smooth = np.convolve(proj, np.ones(win_len) / float(win_len), mode="same")
                     from scipy.signal import find_peaks
                     min_dist = max(15, int(h / 14))
-                    det_peaks, _ = find_peaks(smooth, distance=min_dist, prominence=max(10, float(np.max(smooth)) * 0.12))
-                    valid = [int(p) for p in det_peaks if 0.04 * h <= p <= 0.96 * h]
-                    if len(valid) == 7 and valid[0] < margin_y + 25:
+                    det_peaks, _ = find_peaks(smooth, distance=min_dist, prominence=max(10, float(np.max(smooth)) * 0.10))
+                    valid = [int(p) for p in det_peaks if 0.03 * h <= p <= 0.97 * h]
+                    if len(valid) >= 7 and valid[0] < margin_y + 25:
                         valid = valid[1:]
                     if len(valid) == 6:
                         peaks = valid
+                    elif len(valid) == 5:
+                        # 5 peaks detected: recover 6th row baseline using median inter-row spacing
+                        diffs = np.diff(valid)
+                        med_sp = float(np.median(diffs))
+                        expected_r6 = int(round(valid[4] + med_sp))
+                        if expected_r6 < h:
+                            search_w = int(round(med_sp * 0.25))
+                            s_min = max(0, expected_r6 - search_w)
+                            s_max = min(h, expected_r6 + search_w)
+                            best_p = s_min + int(np.argmax(proj[s_min:s_max]))
+                            peaks = list(valid) + [best_p]
+                    elif len(valid) > 6:
+                        # Select 6 consecutive peaks with most uniform spacing
+                        best_subset = valid[:6]
+                        best_var = 1e9
+                        for s_idx in range(len(valid) - 5):
+                            sub = valid[s_idx : s_idx + 6]
+                            sub_var = float(np.var(np.diff(sub)))
+                            if sub_var < best_var:
+                                best_var = sub_var
+                                best_subset = sub
+                        peaks = best_subset
                 except Exception:
                     pass
 
             if len(peaks) == 6:
-                r0_top = max(0, int(round(peaks[0] - (peaks[1] - peaks[0]) * 0.5)))
-                row_bounds = [
-                    (r0_top, (peaks[0] + peaks[1]) // 2),
-                    ((peaks[0] + peaks[1]) // 2, (peaks[1] + peaks[2]) // 2),
-                    ((peaks[1] + peaks[2]) // 2, (peaks[2] + peaks[3]) // 2),
-                    ((peaks[2] + peaks[3]) // 2, (peaks[3] + peaks[4]) // 2),
-                    ((peaks[3] + peaks[4]) // 2, (peaks[4] + peaks[5]) // 2),
-                    ((peaks[4] + peaks[5]) // 2, min(h - int(round(h * 0.033)), int(peaks[5] + (peaks[5] - peaks[4]) * 0.45))),
-                ]
+                diffs = np.diff(peaks)
+                med_sp = float(np.median(diffs))
+                row_bounds = []
+                for i, b in enumerate(peaks):
+                    if i == 0:
+                        y1 = max(0, int(round(b - med_sp * 0.5)))
+                        y2 = int(round((peaks[0] + peaks[1]) * 0.5))
+                    elif i == len(peaks) - 1:
+                        y1 = int(round((peaks[-2] + peaks[-1]) * 0.5))
+                        y2 = min(h, int(round(b + med_sp * 0.5)))
+                    else:
+                        y1 = int(round((peaks[i-1] + peaks[i]) * 0.5))
+                        y2 = int(round((peaks[i] + peaks[i+1]) * 0.5))
+                    row_bounds.append((y1, y2))
                 row_baselines = [float(p) for p in peaks]
             else:
                 row_h = usable_h // 6

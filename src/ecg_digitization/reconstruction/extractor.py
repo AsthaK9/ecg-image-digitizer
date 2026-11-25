@@ -13,6 +13,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 
+from ecg_digitization.reconstruction.diagnostics import TraceFidelityDiagnostics, TraceFidelityComputer
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,6 +48,7 @@ class ExtractedTrace:
     quality_note: str = "Passed"
     tail_trimmed_samples: int = 0
     segmentation_mask: Optional[np.ndarray] = None
+    fidelity_diagnostics: Optional[TraceFidelityDiagnostics] = None
 
 
 class WaveformExtractor:
@@ -85,15 +88,44 @@ class WaveformExtractor:
             active_w = col_max - col_min + 1
 
             raw_y = np.full(active_w, np.nan, dtype=np.float32)
+            y_prev = None
 
             for offset, c in enumerate(range(col_min, col_max + 1)):
                 fg_indices = np.where(lead_mask[:, c] > 0)[0]
                 if len(fg_indices) > 0:
-                    if self.method == "median":
-                        raw_y[offset] = float(np.median(fg_indices))
-                    else:  # centroid
-                        weights = lead_mask[fg_indices, c].astype(np.float32)
-                        raw_y[offset] = float(np.sum(fg_indices * weights) / (np.sum(weights) + 1e-6))
+                    # Group connected ink clusters along the column
+                    splits = np.where(np.diff(fg_indices) > 2)[0] + 1
+                    clusters = np.split(fg_indices, splits)
+
+                    if y_prev is None:
+                        # Initialize with the largest continuous cluster
+                        best_cluster = max(clusters, key=len)
+                    else:
+                        # Continuity constraint: select cluster closest to previous trajectory
+                        best_cluster = min(clusters, key=lambda cl: abs(float(np.median(cl)) - y_prev))
+
+                    # Subpixel centerline with vertical apex preservation
+                    span = best_cluster[-1] - best_cluster[0] + 1
+                    if span > 6 and y_prev is not None:
+                        # Steep QRS slope or turning point: check for apex reversal
+                        # Upward movement (y decreasing towards peak):
+                        if y_prev > best_cluster[0] and abs(best_cluster[0] - y_prev) < span * 1.5:
+                            chosen_y = float(best_cluster[0])
+                        # Downward movement (y increasing towards trough):
+                        elif y_prev < best_cluster[-1] and abs(best_cluster[-1] - y_prev) < span * 1.5:
+                            chosen_y = float(best_cluster[-1])
+                        else:
+                            weights = lead_mask[best_cluster, c].astype(np.float32)
+                            chosen_y = float(np.sum(best_cluster * weights) / (np.sum(weights) + 1e-6))
+                    else:
+                        if self.method == "median":
+                            chosen_y = float(np.median(best_cluster))
+                        else:  # centroid
+                            weights = lead_mask[best_cluster, c].astype(np.float32)
+                            chosen_y = float(np.sum(best_cluster * weights) / (np.sum(weights) + 1e-6))
+
+                    raw_y[offset] = chosen_y
+                    y_prev = chosen_y
 
             valid_mask = ~np.isnan(raw_y)
             completeness = float(np.sum(valid_mask) / float(active_w))
@@ -106,20 +138,8 @@ class WaveformExtractor:
                 all_x = np.arange(active_w)
                 interpolated_y = np.interp(all_x, x_valid, y_valid).astype(np.float32)
 
-        # Detect and trim zero-padded flat tail (common in Kaggle single-beat plots)
+        # Preserve complete waveform including final isoelectric flat segments (no tail truncation)
         tail_trimmed = 0
-        if len(interpolated_y) > 40:
-            diffs_tail = np.diff(interpolated_y)
-            run_start = len(diffs_tail)
-            while run_start > 0 and abs(diffs_tail[run_start - 1]) < 1e-4:
-                run_start -= 1
-            detected_tail = len(diffs_tail) - run_start
-            # Only trim if there is an active dynamic waveform preceding the tail (not for pure horizontal lines)
-            if detected_tail >= 15 and run_start >= 30 and float(np.std(interpolated_y[:run_start])) > 1.0:
-                interpolated_y = interpolated_y[:run_start]
-                col_max = col_min + run_start - 1
-                active_w = len(interpolated_y)
-                tail_trimmed = detected_tail
 
         if baseline_y is None:
             # Robust isoelectric baseline estimation:
@@ -157,6 +177,17 @@ class WaveformExtractor:
         if not is_qual_ok:
             val_status = "quality_warning"
 
+        fidelity_diag = TraceFidelityComputer.compute(
+            binary_crop=lead_mask,
+            pixel_trajectory=interpolated_y,
+            active_start_col=col_min,
+            active_end_col=col_max,
+            lead_name=lead_name,
+            sampling_rate_hz=100.0,
+            voltage_mv=relative_y * 0.1,
+            crop_height_px=h,
+        )
+
         return ExtractedTrace(
             lead_name=lead_name,
             pixel_trajectory=interpolated_y,
@@ -176,4 +207,5 @@ class WaveformExtractor:
             is_quality_passed=is_qual_ok,
             quality_note=qual_note,
             tail_trimmed_samples=tail_trimmed,
+            fidelity_diagnostics=fidelity_diag,
         )

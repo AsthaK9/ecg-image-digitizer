@@ -25,6 +25,7 @@ import numpy as np
 import torch
 
 from ecg_digitization.models.digitizer_unet import ECGDigitizerUNet
+from ecg_digitization.reconstruction.diagnostics import TraceFidelityComputer
 from ecg_digitization.reconstruction.extractor import ExtractedTrace
 
 logger = logging.getLogger(__name__)
@@ -600,6 +601,28 @@ class DeepCropDigitizer:
             mean_conf = float(np.mean(conf))
             seg_mask = (out.segmentation_probs.squeeze().cpu().numpy() > 0.4).astype(np.uint8)
 
+        # Continuity-constrained ink apex preservation for steep QRS strokes
+        # When binary_crop exhibits a steep vertical deflection (span >= 5 px), anchor the peak to the true
+        # ink apex rather than the vertical centroid, preserving sharp QRS morphology without clipping.
+        if binary_crop.size > 0:
+            for offset, c in enumerate(range(col_min, col_max + 1)):
+                if offset >= len(traj):
+                    break
+                y_curr = traj[offset]
+                col_ink = np.where(binary_crop[:, c] > 0)[0]
+                if len(col_ink) >= 3:
+                    splits = np.where(np.diff(col_ink) > 2)[0] + 1
+                    clusters = np.split(col_ink, splits)
+                    best_cluster = min(clusters, key=lambda cl: abs(float(np.median(cl)) - y_curr))
+                    if abs(float(np.median(best_cluster)) - y_curr) <= 25.0:
+                        span = best_cluster[-1] - best_cluster[0] + 1
+                        if span >= 5:
+                            dist_from_base = base_y_local - y_curr
+                            if dist_from_base > 4.0:
+                                traj[offset] = float(best_cluster[0])
+                            elif dist_from_base < -4.0:
+                                traj[offset] = float(best_cluster[-1])
+
         rel_traj = (base_y_local - traj).astype(np.float32)
         comp_ratio = float(np.mean(binary_crop.sum(axis=0)[col_min : col_max + 1] > 0)) if binary_crop.size > 0 else 1.0
 
@@ -617,6 +640,19 @@ class DeepCropDigitizer:
 
         if not is_qual_ok:
             validation_status = "quality_warning"
+
+        fidelity_diag = TraceFidelityComputer.compute(
+            binary_crop=binary_crop if binary_crop.size > 0 else (seg_mask * 255 if seg_mask is not None else np.zeros((h, w), dtype=np.uint8)),
+            pixel_trajectory=traj,
+            active_start_col=col_min,
+            active_end_col=col_max,
+            lead_name=lead_name,
+            sampling_rate_hz=100.0,
+            voltage_mv=rel_traj * 0.1,
+            crop_height_px=h,
+            is_clipped_top=is_clip_top,
+            is_clipped_bottom=is_clip_bot,
+        )
 
         return ExtractedTrace(
             lead_name=lead_name,
@@ -644,4 +680,5 @@ class DeepCropDigitizer:
             is_quality_passed=is_qual_ok,
             quality_note=qual_note,
             segmentation_mask=seg_mask,
+            fidelity_diagnostics=fidelity_diag,
         )

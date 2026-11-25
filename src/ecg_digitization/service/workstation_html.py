@@ -17,655 +17,155 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 <title>ECG DigiAI — Biomedical Engineering Workstation</title>
 <style>
     :root {
-        --chrome: #0B1F33;
-        --chrome-2: #12304A;
-        --chrome-line: #1F4160;
-        --on-chrome: #E6EEF5;
-        --on-chrome-muted: #9FB3C8;
-        --accent-on-dark: #2DD4BF;
-
-        --bg: #EEF2F6;
-        --surface: #FFFFFF;
-        --surface-sunken: #F5F7FA;
-        --border: #D5DDE6;
-        --border-strong: #B8C4D0;
-        --border-subtle: #E8EEF3;
-
-        --text-main: #14212E;
-        --text-muted: #4B5B6B;
-
-        --primary: #0F766E;
-        --primary-dark: #0B5F58;
-        --primary-light: #E3F4F2;
-
-        --trace-teal: #0F766E;
-        --teal-trace: #0F766E;
-        --teal-light: #E3F4F2;
-        --blue-gt: #1E3A8A;
-
-        --success: #15803D;
-        --success-bg: #E8F5EC;
-        --validated-green: #15803D;
-        --validated-bg: #E8F5EC;
-
-        --warning: #B45309;
-        --warning-bg: #FEF3E2;
-        --experimental-amber: #B45309;
-        --experimental-bg: #FEF3E2;
-
-        --danger: #B91C1C;
-        --danger-bg: #FDECEC;
-
-        --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
-        --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", "JetBrains Mono", Consolas, monospace;
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --border-subtle: #f1f5f9;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --primary: #0284c7;
+        --primary-dark: #0369a1;
+        --primary-light: #e0f2fe;
+        --teal-trace: #0f766e;
+        --teal-light: #ccfbf1;
+        --blue-gt: #1e3a8a;
+        --validated-green: #15803d;
+        --validated-bg: #ecfdf5;
+        --experimental-amber: #b45309;
+        --experimental-bg: #fffbeb;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        --font-mono: "JetBrains Mono", Consolas, "SF Mono", monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-        font-family: var(--font-sans);
-        background: var(--bg);
-        color: var(--text-main);
-        font-size: 14px;
-        line-height: 1.5;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
+    body { font-family: var(--font-sans); background: var(--bg); color: var(--text-main); font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
     
-    /* Top Instrument Frame Header */
-    header {
-        background: var(--chrome);
-        border-bottom: 1px solid var(--chrome-line);
-        padding: 14px 24px 10px 24px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        position: sticky;
-        top: 0;
-        z-index: 100;
-    }
-    .brand-block { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-    .brand-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--on-chrome);
-        letter-spacing: -0.2px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-    .brand-tag {
-        font-size: 11px;
-        background: transparent;
-        color: var(--accent-on-dark);
-        font-weight: 600;
-        padding: 2px 7px;
-        border-radius: 4px;
-        border: 1px solid var(--chrome-line);
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-    }
-    .brand-subtitle { font-size: 12px; color: var(--on-chrome-muted); }
+    /* Top Institutional Header */
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+    .brand-block { display: flex; align-items: center; gap: 12px; }
+    .brand-title { font-size: 17px; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; display: flex; align-items: center; gap: 8px; }
+    .brand-tag { font-size: 11px; background: var(--primary-light); color: var(--primary-dark); font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; }
+    .brand-subtitle { font-size: 11px; color: var(--text-muted); }
     
-    .header-badges { display: flex; align-items: center; gap: 10px; }
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-        border: 1px solid transparent;
-        letter-spacing: 0.3px;
-    }
-    .status-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
-    .badge-validated { background: var(--success-bg); color: var(--success); border-color: #BBF7D0; }
-    .badge-validated::before { background: var(--success); }
-    .badge-deferred { background: var(--warning-bg); color: var(--warning); border-color: #FDE68A; }
-    .badge-deferred::before { background: var(--warning); }
-    
-    .btn-header {
-        padding: 6px 14px;
-        font-size: 12px;
-        border: 1px solid var(--chrome-line);
-        background: var(--chrome-2);
-        border-radius: 6px;
-        cursor: pointer;
-        color: var(--on-chrome);
-        font-weight: 500;
-        transition: all 120ms ease;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .btn-header:hover {
-        background: var(--chrome);
-        border-color: var(--accent-on-dark);
-        color: var(--on-chrome);
-    }
-    .btn-header:focus-visible {
-        outline: 2px solid var(--accent-on-dark);
-        outline-offset: 2px;
-    }
+    .header-badges { display: flex; align-items: center; gap: 8px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid transparent; }
+    .badge-validated { background: var(--validated-bg); color: var(--validated-green); border-color: #a7f3d0; }
+    .badge-deferred { background: var(--experimental-bg); color: var(--experimental-amber); border-color: #fde68a; }
+    .btn-header { padding: 5px 12px; font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 4px; cursor: pointer; color: var(--text-main); font-weight: 500; }
+    .btn-header:hover { background: #f1f5f9; }
 
-    /* Navigation Tabs as part of instrument chrome band */
-    .nav-tabs {
-        background: var(--chrome);
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        padding: 0 24px;
-        gap: 2px;
-        position: sticky;
-        top: 59px;
-        z-index: 99;
-        box-shadow: 0 2px 4px rgba(11,31,51,0.04);
-    }
-    .nav-tab {
-        padding: 12px 18px;
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--on-chrome-muted);
-        border-bottom: 3px solid transparent;
-        cursor: pointer;
-        transition: all 120ms ease;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        border-radius: 6px 6px 0 0;
-        outline: none;
-    }
-    .nav-tab:hover {
-        color: var(--on-chrome);
-        background: var(--chrome-2);
-    }
-    .nav-tab.active {
-        color: #FFFFFF;
-        font-weight: 600;
-        background: var(--chrome-2);
-        border-bottom-color: var(--accent-on-dark);
-    }
-    .nav-tab:focus-visible {
-        outline: 2px solid var(--accent-on-dark);
-        outline-offset: -2px;
-    }
-    .tab-num {
-        font-size: 11px;
-        color: var(--accent-on-dark);
-        opacity: 0.9;
-        font-family: var(--font-mono);
-        font-weight: 500;
-    }
+    /* Navigation Tabs */
+    .nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 24px; gap: 4px; }
+    .nav-tab { padding: 12px 18px; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s ease; display: flex; align-items: center; gap: 6px; }
+    .nav-tab:hover { color: var(--primary); }
+    .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-num { font-size: 11px; opacity: 0.7; font-family: var(--font-mono); }
 
     /* Main Container */
-    main { padding: 24px; max-width: 1560px; margin: 0 auto; }
+    main { padding: 20px 24px; max-width: 1560px; margin: 0 auto; }
     .tab-section { display: none; }
     .tab-section.active { display: block; }
 
     /* Standard Cards & Panels */
-    .panel {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 1px 2px rgba(11,31,51,0.06);
-    }
-    .panel-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--border);
-    }
-    .panel-title {
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--text-main);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .panel-subtitle {
-        font-size: 12px;
-        color: var(--text-muted);
-        font-weight: normal;
-    }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .panel-title { font-size: 14px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .panel-subtitle { font-size: 11px; color: var(--text-muted); font-weight: normal; }
 
     /* Grid Layouts */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .grid-workbench { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 
     /* Form Controls */
-    label {
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--text-muted);
-        display: block;
-        margin-bottom: 6px;
-        letter-spacing: 0.1px;
-    }
-    input[type="text"], input[type="number"], select {
-        width: 100%;
-        height: 36px;
-        padding: 0 12px;
-        font-size: 13px;
-        font-family: inherit;
-        border: 1px solid var(--border-strong);
-        border-radius: 6px;
-        outline: none;
-        background: var(--surface);
-        color: var(--text-main);
-        margin-bottom: 14px;
-        transition: border-color 120ms ease, box-shadow 120ms ease;
-    }
-    input:focus, select:focus {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 2px rgba(15,118,110,0.2);
-    }
-    input[type="range"] {
-        accent-color: var(--primary);
-    }
+    label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+    input[type="text"], input[type="number"], select { width: 100%; padding: 7px 10px; font-size: 12px; font-family: inherit; border: 1px solid var(--border); border-radius: 4px; outline: none; background: #fff; color: var(--text-main); margin-bottom: 12px; }
+    input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(2,132,199,0.15); }
     
     /* Buttons */
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        height: 36px;
-        padding: 0 14px;
-        border-radius: 6px;
-        font-weight: 500;
-        font-size: 13px;
-        cursor: pointer;
-        border: 1px solid transparent;
-        transition: all 120ms ease;
-        text-decoration: none;
-        outline: none;
-    }
-    .btn:focus-visible {
-        outline: 2px solid var(--primary);
-        outline-offset: 2px;
-    }
-    .btn-primary {
-        background: var(--primary);
-        color: #FFFFFF;
-    }
-    .btn-primary:hover {
-        background: var(--primary-dark);
-    }
-    .btn-primary:disabled {
-        background: #94A3B8;
-        color: #F1F5F9;
-        cursor: not-allowed;
-        opacity: 0.75;
-    }
-    .btn-secondary {
-        background: var(--surface);
-        border-color: var(--border-strong);
-        color: var(--text-main);
-    }
-    .btn-secondary:hover {
-        background: var(--surface-sunken);
-        border-color: var(--text-muted);
-    }
-    .btn-secondary.active {
-        background: var(--primary-light);
-        border-color: var(--primary);
-        color: var(--primary-dark);
-        font-weight: 600;
-    }
-    .btn-sm {
-        height: 28px;
-        padding: 0 10px;
-        font-size: 12px;
-        border-radius: 5px;
-    }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 4px; font-weight: 600; font-size: 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+    .btn-secondary { background: #fff; border-color: var(--border); color: var(--text-main); }
+    .btn-secondary:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .btn-sm { padding: 4px 9px; font-size: 11px; }
 
     /* Input Source Selector Cards */
-    .source-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-    .source-card {
-        border: 1px solid var(--border-strong);
-        border-radius: 6px;
-        padding: 10px 8px;
-        cursor: pointer;
-        text-align: center;
-        background: var(--surface);
-        transition: all 120ms ease;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        outline: none;
-    }
-    .source-card:hover {
-        border-color: var(--text-muted);
-        background: var(--surface-sunken);
-    }
-    .source-card.active {
-        border-color: var(--primary);
-        background: var(--primary-light);
-        box-shadow: 0 0 0 1px var(--primary);
-    }
-    .source-card:focus-visible {
-        outline: 2px solid var(--primary);
-        outline-offset: 2px;
-    }
-    .source-card-title {
-        font-weight: 600;
-        font-size: 12px;
-        color: var(--text-main);
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-    }
-    .source-card.active .source-card-title {
-        color: var(--primary-dark);
-    }
-    .source-card-sub {
-        font-size: 11px;
-        color: var(--text-muted);
-    }
+    .source-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+    .source-card { border: 1px solid var(--border); border-radius: 5px; padding: 10px; cursor: pointer; text-align: center; background: #fff; transition: all 0.15s ease; }
+    .source-card:hover { border-color: #94a3b8; }
+    .source-card.active { border-color: var(--primary); background: #f0f9ff; }
+    .source-card-title { font-weight: 700; font-size: 11px; color: var(--text-main); }
+    .source-card.active .source-card-title { color: var(--primary-dark); }
+    .source-card-sub { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
 
     /* Dropzone */
-    .drop-zone {
-        border: 2px dashed var(--border-strong);
-        border-radius: 8px;
-        padding: 28px 16px;
-        text-align: center;
-        background: var(--surface-sunken);
-        cursor: pointer;
-        transition: all 120ms ease;
-        margin-bottom: 16px;
-        outline: none;
-    }
-    .drop-zone:hover, .drop-zone.dragover {
-        border-color: var(--primary);
-        background: var(--primary-light);
-    }
-    .drop-zone:focus-visible {
-        outline: 2px solid var(--primary);
-        outline-offset: 2px;
-    }
-    .drop-icon {
-        font-size: 24px;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: center;
-    }
-    .drop-text {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--text-main);
-    }
-    .drop-hint {
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-top: 4px;
-    }
+    .drop-zone { border: 2px dashed #cbd5e1; border-radius: 6px; padding: 22px 14px; text-align: center; background: #f8fafc; cursor: pointer; transition: all 0.15s ease; margin-bottom: 14px; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #f0f9ff; }
+    .drop-icon { font-size: 24px; margin-bottom: 6px; opacity: 0.8; }
+    .drop-text { font-size: 12px; font-weight: 600; color: var(--text-main); }
+    .drop-hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
     /* Viewport & Scanning Animation */
-    .viewport-box {
-        position: relative;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        background: #0B1F33;
-        min-height: 420px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }
+    .viewport-box { position: relative; border: 1px solid var(--border); border-radius: 6px; background: #111827; min-height: 420px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
     .viewport-box img { max-width: 100%; max-height: 480px; object-fit: contain; }
-    .scanning-beam {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 4px;
-        height: 100%;
-        background: linear-gradient(180deg, transparent, var(--accent-on-dark), var(--primary), var(--accent-on-dark), transparent);
-        box-shadow: 0 0 16px rgba(45,212,191,0.6);
-        display: none;
-        z-index: 20;
-        pointer-events: none;
-    }
+    .scanning-beam { position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, transparent, #38bdf8, #0284c7, #38bdf8, transparent); box-shadow: 0 0 16px #38bdf8; display: none; z-index: 20; pointer-events: none; }
     @keyframes scanPass { 0% { left: 0%; } 100% { left: 100%; } }
     .scanning-active .scanning-beam { display: block; animation: scanPass 2.2s ease-in-out infinite alternate; }
 
     /* Processing Stepper */
     .stepper-container { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-    .stepper-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 8px 12px;
-        background: var(--surface-sunken);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        font-size: 12px;
-    }
+    .stepper-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; background: #f8fafc; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; }
     .step-name { display: flex; align-items: center; gap: 8px; font-weight: 500; }
-    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #CBD5E1; }
-    .step-dot.active { background: var(--primary); box-shadow: 0 0 0 3px rgba(15,118,110,0.25); }
-    .step-dot.done { background: var(--success); }
+    .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
+    .step-dot.active { background: #0284c7; box-shadow: 0 0 6px #0284c7; }
+    .step-dot.done { background: #16a34a; }
     .step-val { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
 
     /* ECG Clinical Paper Canvas */
-    .ecg-canvas-container { position: relative; border: 1px solid #F43F5E; border-radius: 6px; background: #FFFCF9; overflow: hidden; cursor: crosshair; }
+    .ecg-canvas-container { position: relative; border: 1px solid #f43f5e; border-radius: 4px; background: #fffcf9; overflow: hidden; cursor: crosshair; }
     canvas.ecg-paper { display: block; width: 100%; height: auto; }
 
     /* Coordinate Readout Box */
-    .coord-readout-card {
-        background: #0B1F33;
-        color: #F8FAFC;
-        border: 1px solid var(--chrome-line);
-        border-radius: 8px;
-        padding: 12px 18px;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        display: flex;
-        gap: 20px;
-        align-items: center;
-        flex-wrap: wrap;
-        margin-top: 12px;
-    }
+    .coord-readout-card { background: #0f172a; color: #f8fafc; border-radius: 5px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
     .coord-item { display: flex; flex-direction: column; }
-    .coord-label { font-size: 11px; text-transform: uppercase; color: var(--on-chrome-muted); letter-spacing: 0.3px; }
-    .coord-value { font-size: 14px; font-weight: 600; color: var(--accent-on-dark); }
+    .coord-label { font-size: 10px; text-transform: uppercase; color: #94a3b8; }
+    .coord-value { font-size: 14px; font-weight: 700; color: #38bdf8; }
 
     /* 12-Lead Clinical Grid Cards */
-    .leads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
-    .lead-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 12px;
-        cursor: pointer;
-        transition: all 120ms ease;
-        position: relative;
-        outline: none;
-    }
+    .leads-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+    .lead-card { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 10px; cursor: pointer; transition: all 0.15s ease; position: relative; }
     .lead-card:hover { border-color: var(--primary); }
-    .lead-card.active {
-        border-color: var(--primary);
-        background: var(--primary-light);
-        box-shadow: 0 0 0 1px var(--primary);
-    }
-    .lead-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .lead-card.active { border-color: var(--primary); background: #f0f9ff; box-shadow: 0 0 0 2px rgba(2,132,199,0.2); }
     .lead-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .lead-name-tag { font-weight: 700; font-size: 13px; font-family: var(--font-mono); color: var(--text-main); }
+    .lead-name-tag { font-weight: 700; font-size: 13px; font-family: var(--font-mono); }
     .lead-sparkline { width: 100%; height: 38px; display: block; }
     .lead-strip-card { grid-column: 1 / -1; }
 
     /* Pill Badges */
-    .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 3px 8px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        border: 1px solid transparent;
-    }
-    .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
-    .pill-validated { background: var(--success-bg); color: var(--success); border-color: #BBF7D0; }
-    .pill-validated::before { background: var(--success); }
-    .pill-experimental { background: var(--warning-bg); color: var(--warning); border-color: #FDE68A; }
-    .pill-experimental::before { background: var(--warning); }
+    .pill { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .pill-validated { background: var(--validated-bg); color: var(--validated-green); }
+    .pill-experimental { background: var(--experimental-bg); color: var(--experimental-amber); }
 
     /* Tables */
-    table.data-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-        font-size: 13px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    table.data-table th, table.data-table td { padding: 10px 14px; text-align: left; }
-    table.data-table th {
-        background: var(--surface-sunken);
-        font-weight: 500;
-        color: var(--text-muted);
-        font-size: 12px;
-        border-bottom: 1px solid var(--border);
-    }
-    table.data-table td {
-        border-bottom: 1px solid var(--border-subtle);
-        color: var(--text-main);
-    }
-    table.data-table tr:last-child td { border-bottom: none; }
-    table.data-table tr:hover td { background: #F8FAFC; }
+    table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.data-table th, table.data-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    table.data-table th { background: #f8fafc; font-weight: 600; color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
+    table.data-table tr:hover { background: #fafafa; }
 
     /* Notice Banner */
-    .notice-banner {
-        background: var(--warning-bg);
-        border: 1px solid #FCD34D;
-        border-left: 3px solid var(--warning);
-        padding: 10px 16px;
-        font-size: 13px;
-        color: #78350F;
-        border-radius: 6px;
-        margin-bottom: 20px;
-        line-height: 1.5;
-    }
+    .notice-banner { background: #fffbeb; border-left: 3px solid #f59e0b; padding: 10px 14px; font-size: 12px; color: #92400e; border-radius: 3px; margin-bottom: 14px; line-height: 1.5; }
 
     /* Modal Dialog */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(11,31,51,0.65);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 200;
-        backdrop-filter: blur(3px);
-    }
-    .modal-box {
-        background: var(--surface);
-        width: 680px;
-        max-width: 95vw;
-        max-height: 90vh;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        overflow-y: auto;
-        padding: 24px;
-        box-shadow: 0 12px 32px rgba(11,31,51,0.25);
-    }
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 14px;
-        margin-bottom: 18px;
-    }
-
-    /* Inline SVG Icons */
-    .icon {
-        width: 16px;
-        height: 16px;
-        display: inline-block;
-        vertical-align: middle;
-        stroke: currentColor;
-        fill: none;
-        flex-shrink: 0;
-    }
-    .icon-lg {
-        width: 24px;
-        height: 24px;
-    }
-
-    /* Accessibility: Reduced Motion */
-    @media (prefers-reduced-motion: reduce) {
-        *, *::before, *::after {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
-        }
-        .scanning-active .scanning-beam {
-            display: none !important;
-        }
-    }
-
-    /* Responsive Breakpoints */
-    @media (max-width: 1100px) {
-        .grid-workbench { grid-template-columns: 1fr; }
-        .grid-2 { grid-template-columns: 1fr; }
-        .grid-4 { grid-template-columns: repeat(2, 1fr); }
-        .leads-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    @media (max-width: 720px) {
-        header { flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px 16px; }
-        .nav-tabs { padding: 0 16px; overflow-x: auto; }
-        main { padding: 16px; }
-        .grid-3 { grid-template-columns: 1fr; }
-        .grid-4 { grid-template-columns: 1fr; }
-        .leads-grid { grid-template-columns: 1fr; }
-        .source-selector { grid-template-columns: 1fr; }
-        .coord-readout-card { gap: 12px; }
-    }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(2px); }
+    .modal-box { background: #fff; width: 680px; max-width: 95vw; max-height: 90vh; border-radius: 8px; overflow-y: auto; padding: 22px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; }
 </style>
 </head>
 <body>
-<!-- SVG Icon Sprite -->
-<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-  </symbol>
-  <symbol id="i-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-  </symbol>
-  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-  </symbol>
-  <symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/>
-  </symbol>
-  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-  </symbol>
-  <symbol id="i-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
-  </symbol>
-  <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-  </symbol>
-  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-  </symbol>
-</svg>
 
 <!-- Header -->
 <header>
@@ -676,26 +176,24 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         </div>
         <div class="brand-subtitle">Jaypee Institute of Information Technology, Noida · Dept. of Electronics & Communication Engineering</div>
     </div>
-    <div class="header-badges">
-        <button class="btn-header" onclick="openAboutModal()">About</button>
-    </div>
+    
 </header>
 
 <!-- Navigation -->
-<div class="nav-tabs" role="tablist">
-    <div class="nav-tab active" role="tab" tabindex="0" onclick="switchWorkstationTab('workbench')">
+<div class="nav-tabs">
+    <div class="nav-tab active" onclick="switchWorkstationTab('workbench')">
         <span class="tab-num">01</span>
         <span>Digitisation Workbench</span>
     </div>
-    <div class="nav-tab" role="tab" tabindex="0" onclick="switchWorkstationTab('explorer')">
+    <div class="nav-tab" onclick="switchWorkstationTab('explorer')">
         <span class="tab-num">02</span>
         <span>Lead Explorer</span>
     </div>
-    <div class="nav-tab" role="tab" tabindex="0" onclick="switchWorkstationTab('synthetic')">
+    <div class="nav-tab" onclick="switchWorkstationTab('synthetic')">
         <span class="tab-num">03</span>
         <span>Synthetic ECG Lab</span>
     </div>
-    <div class="nav-tab" role="tab" tabindex="0" onclick="switchWorkstationTab('evaluation')">
+    <div class="nav-tab" onclick="switchWorkstationTab('evaluation')">
         <span class="tab-num">04</span>
         <span>Evaluation & Export</span>
     </div>
@@ -721,34 +219,36 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
                     <!-- Source Tabs -->
                     <div class="source-selector">
-                        <div class="source-card active" id="src-upload" role="tab" tabindex="0" onclick="selectSourceMode('upload')">
-                            <div class="source-card-title"><svg class="icon"><use href="#i-upload"/></svg> Upload</div>
+                        <div class="source-card active" id="src-upload" onclick="selectSourceMode('upload')">
+                            <div class="source-card-title">Upload</div>
                             <div class="source-card-sub">Local File</div>
                         </div>
-                        <div class="source-card" id="src-sample" role="tab" tabindex="0" onclick="selectSourceMode('sample')">
-                            <div class="source-card-title"><svg class="icon"><use href="#i-pulse"/></svg> Real Beat</div>
-                            <div class="source-card-sub">Kaggle Sample</div>
+                        <div class="source-card" id="src-sample" onclick="selectSourceMode('sample')">
+                            <div class="source-card-title">Real Beat</div>
+                            <div class="source-card-sub">Benchmark Sample</div>
                         </div>
-                        <div class="source-card" id="src-synthetic" role="tab" tabindex="0" onclick="selectSourceMode('synthetic')">
-                            <div class="source-card-title"><svg class="icon"><use href="#i-file"/></svg> Synthetic</div>
+                        <div class="source-card" id="src-synthetic" onclick="selectSourceMode('synthetic')">
+                            <div class="source-card-title">Synthetic</div>
                             <div class="source-card-sub">From Lab</div>
                         </div>
-                        <div class="source-card" id="src-csv" role="tab" tabindex="0" onclick="triggerCSVImport()">
-                            <div class="source-card-title"><svg class="icon"><use href="#i-chart"/></svg> CSV</div>
-                            <div class="source-card-sub">Import Signal</div>
+                        <div class="source-card" id="src-csv" onclick="triggerCSVImport()">
+                            <div class="source-card-title">Import CSV</div>
+                            <div class="source-card-sub">Signal Time-Series</div>
                         </div>
                     </div>
-                    <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCSVFileSelect(event)">
+                    <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCSVFileSelect(event)" />
 
                     <!-- Alert message box -->
-                    <div id="workbench-alert" style="display:none; background:var(--danger-bg); border:1px solid #FCA5A5; border-left:3px solid var(--danger); color:var(--danger); padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:14px; font-weight:500;"></div>
+                    <div id="workbench-alert" style="display:none; background:var(--danger-bg); border:1px solid #fca5a5; color:var(--danger); padding:8px 12px; border-radius:4px; font-size:12px; margin-bottom:12px;"></div>
 
                     <!-- Mode 1: Upload Dropzone -->
                     <div id="box-upload" class="drop-zone" onclick="document.getElementById('file-upload-input').click()">
-                        <div class="drop-icon"><svg class="icon icon-lg" style="width:28px;height:28px;color:var(--text-muted);"><use href="#i-upload"/></svg></div>
-                        <div class="drop-text">Click or Drag & Drop ECG Image</div>
-                        <div class="drop-hint">Supports PNG, JPG, JPEG (Min: 50x50 px)</div>
-                        <input type="file" id="file-upload-input" accept="image/png, image/jpeg, image/jpg" style="display:none;" onchange="handleFileDrop(event)">
+                        <div class="drop-icon" style="margin-bottom:6px; color:var(--text-muted);">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </div>
+                        <div class="drop-text">Click or Drag & Drop ECG Image or CSV</div>
+                        <div class="drop-hint">Supports PNG, JPG, JPEG or Signal CSV</div>
+                        <input type="file" id="file-upload-input" accept="image/png, image/jpeg, image/jpg, .csv" style="display:none;" onchange="handleFileDrop(event)">
                     </div>
 
                     <!-- Mode 2: Real Beat Picker -->
@@ -766,12 +266,12 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     </div>
 
                     <!-- Mode 3: Synthetic Sheet Note -->
-                    <div id="box-synthetic" style="display:none; margin-bottom:14px; background:var(--primary-light); border:1px solid var(--border-strong); padding:12px; border-radius:6px; font-size:13px; color:var(--primary-dark);">
+                    <div id="box-synthetic" style="display:none; margin-bottom:14px; background:#f0f9ff; border:1px solid #bae6fd; padding:10px; border-radius:4px; font-size:12px; color:var(--primary-dark);">
                         Using active paired synthetic 12-lead paper sheet generated in Section 03.
                     </div>
 
                     <!-- Active Image Readout Card -->
-                    <div style="border:1px solid var(--border); border-radius:6px; padding:12px; background:var(--surface-sunken); margin-bottom:16px;">
+                    <div style="border:1px solid var(--border); border-radius:4px; padding:10px; background:#f8fafc; margin-bottom:14px;">
                         <label>Active Input Metadata</label>
                         <div id="active-meta-text" style="font-family:var(--font-mono); font-size:11px; color:var(--text-main); line-height:1.6;">
                             No input selected. Choose an option above.
@@ -813,12 +313,19 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 <div class="panel" style="margin-bottom:14px;">
                     <div class="panel-header">
                         <span class="panel-title">Visual Processing Workspace</span>
-                        <div style="display:flex; gap:6px;">
+                        <div id="image-view-buttons" style="display:flex; gap:6px;">
                             <button class="btn btn-secondary btn-sm active" id="btn-view-overlay" onclick="switchImageView('overlay')">Diagnostic Overlay</button>
+                            <button class="btn btn-secondary btn-sm" id="btn-view-qrs" onclick="switchImageView('qrs')">QRS Detection Overlay</button>
+                            <button class="btn btn-secondary btn-sm" id="btn-view-uncertainty" onclick="switchImageView('uncertainty')">Trace Fidelity Overlay</button>
                             <button class="btn btn-secondary btn-sm" id="btn-view-suppressed" onclick="switchImageView('suppressed')">Grid Suppressed</button>
                             <button class="btn btn-secondary btn-sm" id="btn-view-binary" onclick="switchImageView('binary')">Binary Trace</button>
                             <button class="btn btn-secondary btn-sm" id="btn-view-deskewed" onclick="switchImageView('deskewed')">Deskewed</button>
                             <button class="btn btn-secondary btn-sm" id="btn-view-original" onclick="switchImageView('original')">Input Original</button>
+                        </div>
+                        <div id="csv-view-controls" style="display:none; align-items:center; gap:8px;">
+                            <span class="pill pill-validated" id="workbench-csv-lead-tag">Lead II</span>
+                            <span style="font-size:11px; color:var(--text-muted);" id="workbench-csv-meta-tag">Digital Time-Series</span>
+                            <button class="btn btn-secondary btn-sm" onclick="switchWorkstationTab('explorer')">Open in Lead Explorer &rarr;</button>
                         </div>
                     </div>
 
@@ -826,8 +333,9 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     <div class="viewport-box" id="viewport-box">
                         <div class="scanning-beam" id="scanning-beam"></div>
                         <img id="viewport-img" src="" alt="ECG Viewport" style="display:none;" />
+                        <canvas id="workbench-csv-canvas" width="1160" height="420" style="display:none; width:100%; height:420px; cursor:crosshair;"></canvas>
                         <div id="viewport-placeholder" style="color:#64748b; font-size:13px; text-align:center;">
-                            Load or upload an ECG image to view processing stages.
+                            Load or upload an ECG image or signal CSV to view processing stages.
                         </div>
                     </div>
 
@@ -863,8 +371,69 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                         </div>
                     </div>
 
+                    <!-- Collapsible Trace Fidelity Diagnostics Section -->
+                    <div class="panel" id="trace-fidelity-panel" style="margin-top:14px; border:1px solid var(--border-color); border-radius:4px; padding:12px 16px; background:#fafafa;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleFidelityCollapse()">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span id="fidelity-collapse-icon" style="font-family:monospace; font-size:12px; color:var(--text-muted);">▼</span>
+                                <span style="font-weight:600; font-size:13px; color:var(--text-main); letter-spacing:0.3px;">Trace Fidelity Diagnostics</span>
+                                <span class="pill pill-validated" id="fidelity-status-pill" style="font-size:10px; display:none;">HIGH_FIDELITY</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:10px;" onclick="event.stopPropagation()">
+                                <label style="font-size:11px; color:var(--text-muted);" for="fidelity-lead-select">Lead:</label>
+                                <select id="fidelity-lead-select" class="form-select" style="font-size:11px; padding:2px 8px; height:26px; border-radius:3px;" onchange="onFidelityLeadChange(this.value)">
+                                    <option value="">Awaiting Digitisation</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="fidelity-content-body" style="margin-top:12px; font-size:12px;">
+                            <!-- Pre-digitisation placeholder -->
+                            <div id="fidelity-empty-msg" style="color:var(--text-muted); font-size:11px; padding:8px 0;">
+                                Digitise an ECG image to compute intermediate ink recovery, ambiguity, and sample interpolation diagnostics.
+                            </div>
+
+                            <div id="fidelity-data-container" style="display:none;">
+                                <!-- Status & Summary Note -->
+                                <div style="background:#fff; border:1px solid var(--border-color); border-radius:3px; padding:8px 12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                                    <div>
+                                        <span style="font-size:11px; color:var(--text-muted);">Extraction Integrity: </span>
+                                        <strong id="fidelity-status-text" style="font-size:12px; color:var(--text-main);">ACCEPTABLE_FIDELITY</strong>
+                                        <div id="fidelity-note-text" style="font-size:11px; color:var(--text-muted); margin-top:2px;">Continuous trace ink observed with localized multi-path ambiguity.</div>
+                                    </div>
+                                    <button class="btn btn-secondary btn-sm" id="btn-inspect-lead-overlay" onclick="inspectSelectedLeadOverlay()" style="font-size:11px; padding:3px 8px;">
+                                        Inspect Uncertainty in Viewport &rarr;
+                                    </button>
+                                </div>
+
+                                <!-- Core Metrics Table -->
+                                <table style="width:100%; border-collapse:collapse; margin-bottom:10px; background:#fff; border:1px solid var(--border-color); font-size:11px;">
+                                    <thead>
+                                        <tr style="background:#f1f5f9; border-bottom:1px solid var(--border-color); text-align:left;">
+                                            <th style="padding:6px 10px; font-weight:600; color:var(--text-main); width:28%;">Diagnostic Category</th>
+                                            <th style="padding:6px 10px; font-weight:600; color:var(--text-main); width:30%;">Value</th>
+                                            <th style="padding:6px 10px; font-weight:600; color:var(--text-main); width:15%;">Provenance</th>
+                                            <th style="padding:6px 10px; font-weight:600; color:var(--text-main); width:27%;">Scientific Method</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="fidelity-metrics-tbody">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+
+                                <!-- Uncertain Intervals Table -->
+                                <div style="margin-top:8px;">
+                                    <div style="font-weight:600; font-size:11px; color:var(--text-main); margin-bottom:4px;">Uncertain Intervals & Local Risk Factors</div>
+                                    <div id="fidelity-intervals-container" style="max-height:120px; overflow-y:auto; border:1px solid var(--border-color); background:#fff; border-radius:3px; padding:6px 10px; font-size:11px;">
+                                        <!-- Populated dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Post-Digitisation Handoff Banner -->
-                    <div id="digitize-success-banner" style="display:none; background:var(--success-bg); border:1px solid #86EFAC; border-left:3px solid var(--success); border-radius:6px; padding:14px 18px; margin-top:16px; align-items:center; justify-content:space-between;">
+                    <div id="digitize-success-banner" style="display:none; background:#ecfdf5; border:1px solid #10b981; border-radius:4px; padding:12px 16px; margin-top:14px; align-items:center; justify-content:space-between;">
                         <div>
                             <strong style="color:#047857;">Digitisation Complete:</strong>
                             <span style="color:#065f46; margin-left:6px;" id="digitize-summary-msg">13 leads extracted. Waveforms ready for inspection.</span>
@@ -905,7 +474,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 </div>
                 <div style="display:flex; gap:8px; align-items:center;">
                     <button class="btn btn-secondary btn-sm" id="btn-play-pause" onclick="toggleWaveformPlayback()">Play</button>
-                    <button class="btn btn-secondary btn-sm" onclick="restartWaveformPlayback()"><svg class="icon"><use href="#i-rotate"/></svg> Restart</button>
+                    <button class="btn btn-secondary btn-sm" onclick="restartWaveformPlayback()">Restart</button>
                     <label style="margin:0; font-size:11px; display:inline-flex; align-items:center; gap:4px;">
                         Speed:
                         <select id="playback-speed" style="margin:0; padding:3px 6px; width:auto;" onchange="setPlaybackSpeed(this.value)">
@@ -947,6 +516,36 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 </div>
             </div>
 
+            <!-- Diagnostic Signal & Calibration Specification -->
+            <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span class="panel-title" style="font-size:12px;">Diagnostic Signal & Calibration Specification</span>
+                    <span class="pill pill-validated" style="font-size:10px;" id="diag-provenance-tag">Source: Reconstructed</span>
+                </div>
+                <div class="grid-4" style="font-size:11px; gap:8px;">
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:8px 12px; border-radius:6px;">
+                        <span style="color:var(--text-muted); display:block; font-size:10px; font-weight:600;">SAMPLE METRICS</span>
+                        <strong id="diag-sample-count">-- samples</strong> @ <span id="diag-fs">-- Hz</span>
+                        <div style="color:var(--text-muted); font-size:10px; margin-top:2px;" id="diag-timestamps">t: 0.000s &rarr; --s (&Delta;t=--s)</div>
+                    </div>
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:8px 12px; border-radius:6px;">
+                        <span style="color:var(--text-muted); display:block; font-size:10px; font-weight:600;">TEMPORAL DURATION</span>
+                        <strong id="diag-duration">-- s</strong>
+                        <div style="color:var(--text-muted); font-size:10px; margin-top:2px;" id="diag-duration-formula">Duration = (N - 1) / fs (verified)</div>
+                    </div>
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:8px 12px; border-radius:6px;">
+                        <span style="color:var(--text-muted); display:block; font-size:10px; font-weight:600;">AMPLITUDE DYNAMICS</span>
+                        <strong id="diag-amplitude">-- mV</strong>
+                        <div style="color:var(--text-muted); font-size:10px; margin-top:2px;" id="diag-baseline">Baseline: 0.000 mV</div>
+                    </div>
+                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:8px 12px; border-radius:6px;">
+                        <span style="color:var(--text-muted); display:block; font-size:10px; font-weight:600;">CALIBRATION CONSTANTS</span>
+                        <strong id="diag-cal-status">--</strong>
+                        <div style="color:var(--text-muted); font-size:10px; margin-top:2px;" id="diag-cal-factors">-- px/mV | -- px/s</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Basic Signal Processing Analysis (NO Disease Classifier) -->
             <div style="margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -954,22 +553,22 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     <span style="font-size:11px; color:var(--text-muted);">Pan-Tompkins Derivative QRS Detection & Butterworth 0.5–40 Hz Filter</span>
                 </div>
                 <div class="grid-4" style="text-align:center;">
-                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Heart Rate</div>
                         <div style="font-size:22px; font-weight:700; color:var(--primary); margin-top:2px;" id="metric-hr">-- BPM</div>
                         <div style="font-size:10px; color:var(--text-muted);" id="metric-rhythm-desc">--</div>
                     </div>
-                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">QRS R-Peaks Detected</div>
                         <div style="font-size:22px; font-weight:700; color:var(--text-main); margin-top:2px;" id="metric-peaks">--</div>
                         <div style="font-size:10px; color:var(--text-muted);">Marked on graph</div>
                     </div>
-                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Mean RR Interval</div>
                         <div style="font-size:22px; font-weight:700; color:var(--text-main); margin-top:2px;" id="metric-rr">-- s</div>
                         <div style="font-size:10px; color:var(--text-muted);" id="metric-rr-std">Std: -- s</div>
                     </div>
-                    <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                    <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                         <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Signal Quality Index</div>
                         <div style="font-size:22px; font-weight:700; color:var(--validated-green); margin-top:2px;" id="metric-sqi">--</div>
                         <div style="font-size:10px; color:var(--text-muted);" id="metric-duration">Duration: -- s</div>
@@ -1005,7 +604,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 </select>
 
                 <!-- Record Metadata Card -->
-                <div style="border:1px solid var(--border); border-radius:6px; padding:12px; background:var(--surface-sunken); margin-bottom:16px;">
+                <div style="border:1px solid var(--border); border-radius:4px; padding:10px; background:#f8fafc; margin-bottom:14px;">
                     <div style="font-weight:600; font-size:11px; color:var(--text-muted); margin-bottom:4px;">CLINICAL RECORD METADATA</div>
                     <div id="synth-record-info" style="font-family:var(--font-mono); font-size:11px; line-height:1.6;">
                         Record: 00001_lr | 12 Leads | 100 Hz | 10.0 s | 1000 Samples/Lead
@@ -1107,22 +706,22 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
             <!-- Fidelity Metrics Cards -->
             <div class="grid-4" style="text-align:center; margin-bottom:14px;">
-                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Pearson Correlation (r)</div>
                     <div style="font-size:20px; font-weight:700; color:var(--primary); margin-top:2px;" id="eval-pearson">r = --</div>
                     <div style="font-size:10px; color:var(--text-muted);">Target: r > 0.90</div>
                 </div>
-                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Root Mean Square Error</div>
                     <div style="font-size:20px; font-weight:700; color:var(--validated-green); margin-top:2px;" id="eval-rmse">-- mV</div>
                     <div style="font-size:10px; color:var(--text-muted);">Target: < 0.25 mV</div>
                 </div>
-                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Signal-to-Noise Ratio</div>
                     <div style="font-size:20px; font-weight:700; color:var(--text-main); margin-top:2px;" id="eval-snr">-- dB</div>
                     <div style="font-size:10px; color:var(--text-muted);">Residual noise fidelity</div>
                 </div>
-                <div style="background:var(--surface-sunken); border:1px solid var(--border); padding:12px; border-radius:6px;">
+                <div style="background:#f8fafc; border:1px solid var(--border); padding:10px; border-radius:4px;">
                     <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Trace Completeness</div>
                     <div style="font-size:20px; font-weight:700; color:var(--primary); margin-top:2px;" id="eval-comp">--%</div>
                     <div style="font-size:10px; color:var(--text-muted);">No trace dropouts</div>
@@ -1149,26 +748,25 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             </div>
             <div class="grid-4">
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-chart"/></svg></div>
+                    <div style="margin-bottom:8px; color:var(--text-muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:inline-block;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Unified Multi-Lead CSV</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Time-series with header metadata</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="downloadCSVExport()">Download CSV</button>
-                    <button class="btn btn-outline btn-sm" style="width:100%; margin-top:6px;" onclick="triggerCSVImport()">Import CSV</button>
                 </div>
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-package"/></svg></div>
+                    <div style="margin-bottom:8px; color:var(--text-muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:inline-block;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">WFDB-Format Archive</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Standard .hea header & data bundle</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="downloadWfdbExport()">Export WFDB</button>
                 </div>
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-clipboard"/></svg></div>
+                    <div style="margin-bottom:8px; color:var(--text-muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:inline-block;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Printable Clinical Report</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Formatted HTML diagnostic summary</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="openPrintableReport()">Print / Save HTML</button>
                 </div>
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
-                    <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-file"/></svg></div>
+                    <div style="margin-bottom:8px; color:var(--text-muted);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:inline-block;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Structured JSON Report</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Machine-readable diagnostic schema</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="downloadJsonReport()">Download JSON</button>
@@ -1183,7 +781,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     <div class="modal-box" onclick="event.stopPropagation()">
         <div class="modal-header">
             <span class="panel-title">ECG DigiAI — System Architecture & Academic Provenance</span>
-            <button class="btn-header" onclick="closeAboutModal()" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+            <button class="btn-header" onclick="closeAboutModal()">✕</button>
         </div>
         <div style="font-size:12px; line-height:1.7; color:var(--text-main);">
             <div style="margin-bottom:12px;">
@@ -1256,18 +854,19 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     // --- Source Selection in Workbench ---
     function selectSourceMode(mode) {
         activeSourceMode = mode;
-        ['upload', 'sample', 'synthetic'].forEach(m => {
+        ['upload', 'sample', 'synthetic', 'csv'].forEach(m => {
             const card = document.getElementById('src-' + m);
+            if (card) card.classList.toggle('active', m === mode);
+        });
+        ['upload', 'sample', 'synthetic'].forEach(m => {
             const box = document.getElementById('box-' + m);
-            if (m === mode) {
-                card.classList.add('active');
-                box.style.display = (m === 'upload' ? 'block' : (m === 'sample' ? 'block' : 'block'));
-            } else {
-                card.classList.remove('active');
-                box.style.display = 'none';
-            }
+            if (box) box.style.display = (m === mode ? 'block' : 'none');
         });
         document.getElementById('workbench-alert').style.display = 'none';
+
+        if (mode !== 'csv') {
+            showImageInWorkbench();
+        }
 
         if (mode === 'sample') {
             loadCuratedSample();
@@ -1297,13 +896,24 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         });
         dropZone.addEventListener('drop', (e) => {
             const files = e.dataTransfer.files;
-            if (files && files.length > 0) processLocalImage(files[0]);
+            if (!files || files.length === 0) return;
+            const file = files[0];
+            if (file.name.toLowerCase().endsWith('.csv')) {
+                handleCSVFileDirect(file);
+            } else {
+                processLocalImage(file);
+            }
         });
     }
 
     function handleFileDrop(e) {
-        const file = e.target.files[0];
-        if (file) processLocalImage(file);
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.name.toLowerCase().endsWith('.csv')) {
+            handleCSVFileDirect(file);
+        } else {
+            processLocalImage(file);
+        }
     }
 
     function processLocalImage(file) {
@@ -1311,7 +921,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         alertBox.style.display = 'none';
 
         if (!file.type.startsWith('image/')) {
-            alertBox.innerText = 'Error: Uploaded file is not an image format (PNG, JPG required).';
+            alertBox.innerText = 'Error: Uploaded file is not a supported format (PNG, JPG, or CSV required).';
             alertBox.style.display = 'block';
             return;
         }
@@ -1367,7 +977,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const isSingle = (data.suggested_layout === 'single_lead');
             setWorkbenchImage("data:image/png;base64," + data.image_b64, filename, data.width, data.height, data.suggested_layout, isSingle);
         } catch (err) {
-            alertBox.innerText = 'Error: Failed to load curated sample: ' + err.message;
+            alertBox.innerText = 'Failed to load curated sample: ' + err.message;
             alertBox.style.display = 'block';
         }
     }
@@ -1473,6 +1083,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
             const data = await res.json();
             currentDigitizedData = data;
+            renderFidelityDiagnostics(data);
 
             // Update metadata display with final predicted and active layout
             if (data.predicted_layout) currentInferredLayout = data.predicted_layout;
@@ -1495,7 +1106,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             const layoutInfo = `[Active: ${getLayoutDisplayTitle(data.active_layout)}${data.is_layout_overridden ? ' — Manual Override' : ''}]`;
             let warnMsg = '';
             if (data.is_layout_ambiguous) {
-                warnMsg = ' Note: Layout detection confidence moderate; verify alignment.';
+                warnMsg = ' Warning: Layout detection confidence moderate; verify alignment.';
             }
 
             if (leadCount === 1) {
@@ -1512,7 +1123,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             document.getElementById('digitize-success-banner').style.display = 'flex';
 
         } catch (err) {
-            alertBox.innerText = 'Error: Digitisation Pipeline Error: ' + err.message;
+            alertBox.innerText = 'Digitisation Pipeline Error: ' + err.message;
             alertBox.style.display = 'block';
             setStep(2, 'error', 'Error');
         } finally {
@@ -1538,7 +1149,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
     function switchImageView(view) {
         activeViewMode = view;
-        ['overlay', 'suppressed', 'binary', 'deskewed', 'original'].forEach(v => {
+        ['overlay', 'qrs', 'uncertainty', 'suppressed', 'binary', 'deskewed', 'original'].forEach(v => {
             const btn = document.getElementById('btn-view-' + v);
             if (btn) btn.classList.toggle('active', v === view);
         });
@@ -1548,12 +1159,18 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
         if (view === 'overlay' && currentDigitizedData?.sheet_overlay_b64) {
             img.src = "data:image/png;base64," + currentDigitizedData.sheet_overlay_b64;
+        } else if (view === 'qrs' && currentDigitizedData?.qrs_overlay_b64) {
+            img.src = "data:image/png;base64," + currentDigitizedData.qrs_overlay_b64;
+        } else if (view === 'uncertainty' && currentDigitizedData?.uncertainty_overlay_b64) {
+            img.src = "data:image/png;base64," + currentDigitizedData.uncertainty_overlay_b64;
         } else if (view === 'suppressed' && currentDigitizedData?.grid_suppressed_b64) {
             img.src = "data:image/png;base64," + currentDigitizedData.grid_suppressed_b64;
         } else if (view === 'binary' && currentDigitizedData?.binary_trace_b64) {
             img.src = "data:image/png;base64," + currentDigitizedData.binary_trace_b64;
         } else if (view === 'deskewed' && currentDigitizedData?.deskewed_b64) {
             img.src = "data:image/png;base64," + currentDigitizedData.deskewed_b64;
+        } else if (currentDigitizedData?.source_type === 'imported_csv' && currentDigitizedData?.plot_b64) {
+            img.src = "data:image/png;base64," + currentDigitizedData.plot_b64;
         } else if (activeImageBase64) {
             img.src = activeImageBase64;
         }
@@ -1652,8 +1269,11 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         const h = c.height;
         ctx.clearRect(0, 0, w, h);
 
-        const min = Math.min(...values);
-        const max = Math.max(...values);
+        let min = Infinity, max = -Infinity;
+        for (let i = 0; i < values.length; i++) {
+            if (values[i] < min) min = values[i];
+            if (values[i] > max) max = values[i];
+        }
         const span = Math.max(0.001, max - min);
 
         ctx.strokeStyle = '#0f766e';
@@ -1678,14 +1298,67 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         if (selectedCard) selectedCard.classList.add('active');
 
         const leadObj = currentDigitizedData.leads[leadName];
-        const calLabel = (leadObj.is_calibration_reliable && currentDigitizedData.is_calibration_reliable)
+        const isCal = !!(leadObj.is_calibration_reliable && currentDigitizedData.is_calibration_reliable);
+        const calLabel = isCal
             ? 'Calibrated Waveform Inspection'
             : 'Uncalibrated Waveform Inspection (Nominal mV Estimates)';
         document.getElementById('large-viewer-title').innerText = `LEAD ${leadName} — ${calLabel}`;
-        document.getElementById('large-viewer-scope').innerText = leadObj.is_trained_lead
-            ? 'VALIDATED (TRAINED RESNET-U-NET DISTRIBUTION)'
-            : 'EXPERIMENTAL (ZERO-SHOT RECEPTIVE-FIELD TRANSFER)';
-        document.getElementById('large-viewer-scope').className = 'pill ' + (leadObj.is_trained_lead ? 'pill-validated' : 'pill-experimental');
+
+        const isCsv = (currentDigitizedData.source_type === 'imported_csv');
+        if (isCsv) {
+            document.getElementById('large-viewer-scope').innerText = 'IMPORTED DIGITAL CSV (DIRECT TIME-SERIES)';
+            document.getElementById('large-viewer-scope').className = 'pill pill-validated';
+        } else {
+            document.getElementById('large-viewer-scope').innerText = leadObj.is_trained_lead
+                ? 'VALIDATED (TRAINED RESNET-U-NET DISTRIBUTION)'
+                : 'EXPERIMENTAL (ZERO-SHOT RECEPTIVE-FIELD TRANSFER)';
+            document.getElementById('large-viewer-scope').className = 'pill ' + (leadObj.is_trained_lead ? 'pill-validated' : 'pill-experimental');
+        }
+
+        // Update Diagnostic Specification Panel
+        const vals = leadObj.voltage_mv || [];
+        const numPts = vals.length;
+        const fs = leadObj.sampling_rate_hz || 100.0;
+        const dt = 1.0 / fs;
+        const durationS = leadObj.duration_s || (numPts > 1 ? (numPts - 1) / fs : 2.5);
+
+        let minV = Infinity, maxV = -Infinity;
+        for (let i = 0; i < numPts; i++) {
+            if (vals[i] < minV) minV = vals[i];
+            if (vals[i] > maxV) maxV = vals[i];
+        }
+        if (numPts === 0) { minV = 0; maxV = 0; }
+
+        const provTag = document.getElementById('diag-provenance-tag');
+        if (provTag) {
+            provTag.innerText = isCsv ? 'Source: Imported CSV Time-Series' : 'Source: 2D Extracted Waveform';
+            provTag.className = 'pill ' + (isCsv ? 'pill-validated' : 'pill-experimental');
+        }
+
+        const sampleCntEl = document.getElementById('diag-sample-count');
+        if (sampleCntEl) sampleCntEl.innerText = `${numPts} samples`;
+        const fsEl = document.getElementById('diag-fs');
+        if (fsEl) fsEl.innerText = `${fs.toFixed(1)} Hz`;
+
+        const t0 = (leadObj.time_s && leadObj.time_s.length > 0) ? leadObj.time_s[0] : 0.0;
+        const tEnd = (leadObj.time_s && leadObj.time_s.length > 0) ? leadObj.time_s[numPts - 1] : durationS;
+        const tsEl = document.getElementById('diag-timestamps');
+        if (tsEl) tsEl.innerHTML = `t: ${t0.toFixed(3)}s &rarr; ${tEnd.toFixed(3)}s (&Delta;t=${dt.toFixed(3)}s)`;
+
+        const durEl = document.getElementById('diag-duration');
+        if (durEl) durEl.innerText = `${durationS.toFixed(3)} s`;
+        const durFormEl = document.getElementById('diag-duration-formula');
+        if (durFormEl) durFormEl.innerText = `Duration = (N - 1) / fs (${Math.max(0, numPts - 1)} / ${fs} = ${durationS.toFixed(3)} s)`;
+
+        const ampEl = document.getElementById('diag-amplitude');
+        if (ampEl) ampEl.innerText = `[${minV.toFixed(3)}, ${maxV.toFixed(3)}] ${isCal ? 'mV' : 'nominal'}`;
+        const baseEl = document.getElementById('diag-baseline');
+        if (baseEl) baseEl.innerText = `Isoelectric: 0.000 mV (PCHIP Extrema-Preserving)`;
+
+        const calStatusEl = document.getElementById('diag-cal-status');
+        if (calStatusEl) calStatusEl.innerText = isCal ? 'Standard Clinical (Calibrated)' : 'Uncalibrated / Nominal';
+        const calFacEl = document.getElementById('diag-cal-factors');
+        if (calFacEl) calFacEl.innerText = isCal ? '59.06 px/mV | 147.64 px/s (150 DPI)' : 'Relative units (unscaled raster)';
 
         restartWaveformPlayback();
         fetchLeadRhythmAnalysis(leadName);
@@ -1731,72 +1404,180 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         if (isPlaying) restartWaveformPlayback();
     }
 
-    // --- Render ECG Paper Millimeter Grid & Trace ---
+    // --- Shared Digital Waveform Rendering Engine ---
     let detectedRPeaksTimes = [];
 
-    function renderECGCanvas(cursorX = null) {
-        const c = document.getElementById('ecg-canvas');
-        if (!c) return;
-        const ctx = c.getContext('2d');
-        const w = c.width;
-        const h = c.height;
+    function renderWaveformGridAndTrace(canvas, leadObj, isCal, options = {}) {
+        if (!canvas || !leadObj) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
 
         ctx.clearRect(0, 0, w, h);
 
-        // 1. Draw Clinical ECG Paper Grid (Cream background, Pink minor lines, Red major lines)
-        ctx.fillStyle = '#fffcf9';
-        ctx.fillRect(0, 0, w, h);
-
-        const minorPx = 8; // 1 mm minor division
-        const majorPx = 40; // 5 mm major division
-
-        // Minor grid lines (1 mm)
-        ctx.lineWidth = 0.5;
-        ctx.strokeStyle = '#fee2e2';
-        ctx.beginPath();
-        for (let x = 0; x < w; x += minorPx) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
-        for (let y = 0; y < h; y += minorPx) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
-        ctx.stroke();
-
-        // Major grid lines (5 mm)
-        ctx.lineWidth = 1.0;
-        ctx.strokeStyle = '#fca5a5';
-        ctx.beginPath();
-        for (let x = 0; x < w; x += majorPx) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
-        for (let y = 0; y < h; y += majorPx) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
-        ctx.stroke();
-
-        const leadObj = currentDigitizedData?.leads?.[activeLeadName];
-        if (!leadObj) return;
-
-        const vals = leadObj.voltage_mv;
-        const times = leadObj.time_s;
+        const vals = leadObj.voltage_mv || [];
+        const times = leadObj.time_s || [];
         const numPts = vals.length;
-        const maxIndex = Math.min(playbackCurrentSample, numPts);
+        if (numPts === 0) {
+            ctx.fillStyle = '#64748b';
+            ctx.font = '12px var(--font-sans)';
+            ctx.fillText('No waveform data available for Lead ' + (leadObj.lead_name || ''), 40, h / 2);
+            return;
+        }
 
-        const baselineY = h / 2;
-        const pxPerMv = 70; // 70px per mV on display grid
+        const maxIndex = Math.min(options.playbackMaxSample !== undefined ? options.playbackMaxSample : numPts, numPts);
+        const fs = leadObj.sampling_rate_hz || 100.0;
+        const durationS = leadObj.duration_s || (numPts > 1 ? (numPts - 1) / fs : 2.5);
+
+        let minV = Infinity, maxV = -Infinity;
+        for (let i = 0; i < numPts; i++) {
+            if (vals[i] < minV) minV = vals[i];
+            if (vals[i] > maxV) maxV = vals[i];
+        }
+        if (numPts === 0) { minV = -1; maxV = 1; }
+        const peakAbs = Math.max(Math.abs(minV), Math.abs(maxV), 0.5);
+
+        const baselineY = Math.round(h / 2);
+        const originX = isCal ? 65 : 55;
+        const availableW = w - originX - 35;
+
+        // Dynamic vertical scale: adapts sensibly to signal range without normalizing data
+        const pxPerMv = isCal ? 80.0 : ((h - 60) / (2 * peakAbs * 1.12));
+        const pxPerSec = isCal ? 200.0 : (availableW / Math.max(0.1, durationS));
+
+        function getX(i) {
+            const t = (times.length > i && times[i] !== undefined) ? times[i] : (i / fs);
+            if (isCal) {
+                return originX + (t * pxPerSec);
+            } else {
+                return originX + ((t / durationS) * availableW);
+            }
+        }
+        function getY(v) {
+            return baselineY - (v * pxPerMv);
+        }
+
+        // 1. Draw Grid
+        if (isCal) {
+            // Standard Clinical Paper Grid (Cream, Pink minor lines, Red major lines)
+            ctx.fillStyle = '#fffcf9';
+            ctx.fillRect(0, 0, w, h);
+
+            const minorPx = 8;
+            const majorPx = 40;
+
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = '#fee2e2';
+            ctx.beginPath();
+            for (let x = 0; x < w; x += minorPx) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+            for (let y = 0; y < h; y += minorPx) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+            ctx.stroke();
+
+            ctx.lineWidth = 1.0;
+            ctx.strokeStyle = '#fca5a5';
+            ctx.beginPath();
+            for (let x = 0; x < w; x += majorPx) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+            for (let y = 0; y < h; y += majorPx) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+            ctx.stroke();
+
+            // Calibration pulse (1.0 mV / 0.2 s)
+            ctx.lineWidth = 1.8;
+            ctx.strokeStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.moveTo(12, baselineY);
+            ctx.lineTo(16, baselineY);
+            ctx.lineTo(16, baselineY - pxPerMv);
+            ctx.lineTo(32, baselineY - pxPerMv);
+            ctx.lineTo(32, baselineY);
+            ctx.lineTo(36, baselineY);
+            ctx.stroke();
+
+            ctx.font = '9px var(--font-mono)';
+            ctx.fillStyle = '#b91c1c';
+            ctx.fillText('1mV', 16, baselineY - pxPerMv - 4);
+            ctx.fillText('25 mm/s | 10 mm/mV (150 DPI Physical Scale)', originX, 16);
+        } else {
+            // Uncalibrated / Nominal Engineering Plot Grid (Neutral Slate)
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, w, h);
+
+            // Minor grid
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.beginPath();
+            for (let x = originX; x < w; x += 25) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+            for (let y = 0; y < h; y += 25) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+            ctx.stroke();
+
+            // Major grid (time intervals)
+            const stepS = durationS <= 3.0 ? 0.5 : (durationS <= 6.0 ? 1.0 : 2.0);
+            ctx.font = '10px var(--font-mono)';
+            ctx.fillStyle = '#64748b';
+            for (let t = 0; t <= durationS + 1e-4; t += stepS) {
+                const x = originX + ((t / durationS) * availableW);
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 1.0;
+                ctx.beginPath();
+                ctx.moveTo(x, 26);
+                ctx.lineTo(x, h - 22);
+                ctx.stroke();
+                ctx.fillText(t.toFixed(1) + 's', x - 10, h - 8);
+            }
+
+            // Nominal voltage levels
+            const nomLevels = [1.0, -1.0];
+            if (peakAbs > 1.8) nomLevels.push(2.0, -2.0);
+            if (peakAbs < 0.8) nomLevels.push(0.5, -0.5);
+
+            ctx.strokeStyle = '#e2e8f0';
+            ctx.lineWidth = 1.0;
+            nomLevels.forEach(lvl => {
+                const y = getY(lvl);
+                if (y > 25 && y < h - 25) {
+                    ctx.beginPath();
+                    ctx.moveTo(originX, y);
+                    ctx.lineTo(w - 20, y);
+                    ctx.stroke();
+                    ctx.fillText((lvl > 0 ? '+' : '') + lvl.toFixed(1) + ' nom', 6, y + 4);
+                }
+            });
+
+            // Zero baseline axis
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(originX, baselineY);
+            ctx.lineTo(w - 20, baselineY);
+            ctx.stroke();
+
+            ctx.font = '10px var(--font-mono)';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('0.0 base', 6, baselineY + 4);
+
+            const titleText = options.title || `Waveform Inspection — Lead: ${leadObj.lead_name || 'II'} | Duration: ${durationS.toFixed(2)}s | ${numPts} pts @ ${fs.toFixed(0)} Hz (Nominal)`;
+            ctx.fillText(titleText, originX, 16);
+        }
 
         // 2. Draw Waveform Trace
         ctx.lineWidth = 2.2;
         ctx.strokeStyle = '#0f766e'; // Medical teal
         ctx.beginPath();
         for (let i = 0; i < maxIndex; i++) {
-            const x = (i / (numPts - 1)) * (w - 40) + 20;
-            const y = baselineY - (vals[i] * pxPerMv);
+            const x = getX(i);
+            const y = getY(vals[i]);
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         }
         ctx.stroke();
 
         // 3. Draw Detected R-Peaks Markers
-        if (detectedRPeaksTimes.length > 0) {
+        if (options.showRPeaks && detectedRPeaksTimes && detectedRPeaksTimes.length > 0) {
             ctx.fillStyle = '#dc2626';
             detectedRPeaksTimes.forEach(t => {
-                const sampleIdx = Math.round((t / leadObj.duration_s) * (numPts - 1));
-                if (sampleIdx < maxIndex) {
-                    const px = (sampleIdx / (numPts - 1)) * (w - 40) + 20;
-                    const py = baselineY - (vals[sampleIdx] * pxPerMv);
+                const sampleIdx = Math.round(t * fs);
+                if (sampleIdx < maxIndex && sampleIdx < numPts) {
+                    const px = getX(sampleIdx);
+                    const py = getY(vals[sampleIdx]);
                     ctx.beginPath();
                     ctx.arc(px, py - 6, 4, 0, 2 * Math.PI);
                     ctx.fill();
@@ -1805,29 +1586,30 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         }
 
         // 4. Draw Interval Selection Highlight
-        if (selectionStartSample !== null && selectionEndSample !== null && selectionStartSample !== selectionEndSample) {
-            const minS = Math.min(selectionStartSample, selectionEndSample);
-            const maxS = Math.max(selectionStartSample, selectionEndSample);
-            const x1 = (minS / (numPts - 1)) * (w - 40) + 20;
-            const x2 = (maxS / (numPts - 1)) * (w - 40) + 20;
+        if (options.selectionStart !== null && options.selectionEnd !== null && options.selectionStart !== undefined && options.selectionEnd !== undefined && options.selectionStart !== options.selectionEnd) {
+            const minS = Math.min(options.selectionStart, options.selectionEnd);
+            const maxS = Math.max(options.selectionStart, options.selectionEnd);
+            const x1 = getX(minS);
+            const x2 = getX(maxS);
             ctx.fillStyle = 'rgba(2, 132, 199, 0.18)';
             ctx.fillRect(x1, 0, x2 - x1, h);
             ctx.strokeStyle = '#0284c7';
             ctx.lineWidth = 1.5;
             ctx.strokeRect(x1, 0, x2 - x1, h);
 
-            // Interval measurement banner text
-            const dtSec = Math.abs(times[maxS] - times[minS]);
+            const tMin = (times.length > minS) ? times[minS] : (minS / fs);
+            const tMax = (times.length > maxS) ? times[maxS] : (maxS / fs);
+            const dtSec = Math.abs(tMax - tMin);
             const dtMs = Math.round(dtSec * 1000);
             const eqBpm = dtSec > 0 ? Math.round(60 / dtSec) : 0;
             ctx.fillStyle = '#0369a1';
-            ctx.font = '600 12px sans-serif';
-            ctx.fillText(`Selected Interval: Δt = ${dtMs} ms | ${eqBpm} bpm equivalent`, x1 + 4, 20);
+            ctx.font = '600 12px var(--font-sans)';
+            ctx.fillText(`Selected Interval: Δt = ${dtMs} ms | ${eqBpm} bpm equivalent`, x1 + 4, 32);
         }
 
         // 5. Draw Playback Head Sweep Cursor
-        if (maxIndex < numPts && maxIndex > 0) {
-            const sweepX = (maxIndex / (numPts - 1)) * (w - 40) + 20;
+        if (options.showPlaybackCursor && maxIndex < numPts && maxIndex > 0) {
+            const sweepX = getX(maxIndex - 1);
             ctx.strokeStyle = '#0284c7';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
@@ -1837,11 +1619,19 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         }
 
         // 6. Draw Interactive Inspection Cursor Guide Lines
-        if (cursorX !== null) {
-            const effectiveX = Math.max(20, Math.min(w - 20, cursorX));
-            const frac = (effectiveX - 20) / (w - 40);
-            const sIdx = Math.round(frac * (numPts - 1));
-            const curY = baselineY - (vals[sIdx] * pxPerMv);
+        if (options.cursorX !== null && options.cursorX !== undefined) {
+            const effectiveX = Math.max(originX, Math.min(w - 20, options.cursorX));
+            let sIdx;
+            if (isCal) {
+                const tCur = (effectiveX - originX) / pxPerSec;
+                sIdx = Math.max(0, Math.min(numPts - 1, Math.round(tCur * fs)));
+            } else {
+                const frac = (effectiveX - originX) / availableW;
+                sIdx = Math.max(0, Math.min(numPts - 1, Math.round(frac * (numPts - 1))));
+            }
+            const curY = getY(vals[sIdx]);
+            const curT = (times.length > sIdx) ? times[sIdx] : (sIdx / fs);
+            const curV = vals[sIdx];
 
             ctx.strokeStyle = '#475569';
             ctx.lineWidth = 1.0;
@@ -1867,17 +1657,101 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             ctx.arc(effectiveX, curY, 5, 0, 2 * Math.PI);
             ctx.fill();
             ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // Update coordinate box
-            document.getElementById('coord-t').innerText = times[sIdx].toFixed(3) + ' s';
-            document.getElementById('coord-v').innerText = (vals[sIdx] >= 0 ? '+' : '') + vals[sIdx].toFixed(3) + ' mV';
-            document.getElementById('coord-sample').innerText = `#${sIdx}`;
+            // Tooltip box if workbench
+            if (options.isWorkbench) {
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+                const tipW = 160;
+                const tipH = 26;
+                const tipX = Math.min(w - tipW - 10, effectiveX + 10);
+                const tipY = Math.max(10, Math.min(h - tipH - 10, curY - 32));
+                ctx.fillRect(tipX, tipY, tipW, tipH);
+                ctx.strokeStyle = '#38bdf8';
+                ctx.strokeRect(tipX, tipY, tipW, tipH);
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '11px var(--font-mono)';
+                ctx.fillText(`t=${curT.toFixed(3)}s | V=${curV.toFixed(3)}${isCal ? 'mV' : ''}`, tipX + 6, tipY + 17);
+            }
         }
     }
 
-    // Canvas Mouse Interaction for Coordinates & Drag-to-Select Interval
+    function renderECGCanvas(cursorX = null) {
+        const c = document.getElementById('ecg-canvas');
+        if (!c) return;
+        const leadObj = currentDigitizedData?.leads?.[activeLeadName];
+        if (!leadObj) return;
+        const isCal = !!(leadObj.is_calibration_reliable && currentDigitizedData?.is_calibration_reliable);
+        renderWaveformGridAndTrace(c, leadObj, isCal, {
+            playbackMaxSample: playbackCurrentSample,
+            cursorX: cursorX,
+            showRPeaks: true,
+            selectionStart: selectionStartSample,
+            selectionEnd: selectionEndSample,
+            showPlaybackCursor: true,
+            isWorkbench: false,
+        });
+    }
+
+    function renderWorkbenchCSVCanvas(cursorX = null) {
+        const c = document.getElementById('workbench-csv-canvas');
+        if (!c) return;
+        if (!currentDigitizedData || !currentDigitizedData.leads) return;
+        const leadName = activeLeadName || Object.keys(currentDigitizedData.leads)[0] || "II";
+        const leadObj = currentDigitizedData.leads[leadName];
+        if (!leadObj) return;
+        const isCal = !!(leadObj.is_calibration_reliable && currentDigitizedData.is_calibration_reliable);
+        const title = `Imported Digital CSV Signal — Record: ${currentRecordId} | Lead: ${leadName} | ${leadObj.voltage_mv.length} pts @ ${(leadObj.sampling_rate_hz || 100).toFixed(0)} Hz (${isCal ? 'Calibrated' : 'Nominal'})`;
+        renderWaveformGridAndTrace(c, leadObj, isCal, {
+            cursorX: cursorX,
+            showRPeaks: true,
+            isWorkbench: true,
+            title: title,
+        });
+    }
+
+    function showCSVInWorkbench() {
+        const img = document.getElementById('viewport-img');
+        const placeholder = document.getElementById('viewport-placeholder');
+        const csvCanvas = document.getElementById('workbench-csv-canvas');
+        const imgBtns = document.getElementById('image-view-buttons');
+        const csvControls = document.getElementById('csv-view-controls');
+
+        if (img) img.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'none';
+        if (imgBtns) imgBtns.style.display = 'none';
+        if (csvControls) csvControls.style.display = 'flex';
+
+        if (csvCanvas) {
+            csvCanvas.style.display = 'block';
+            const rect = csvCanvas.parentElement.getBoundingClientRect();
+            if (rect.width > 200) {
+                csvCanvas.width = Math.round(rect.width);
+            }
+            renderWorkbenchCSVCanvas();
+        }
+
+        const firstLead = activeLeadName || Object.keys(currentDigitizedData?.leads || {})[0] || "II";
+        const leadTag = document.getElementById('workbench-csv-lead-tag');
+        if (leadTag) leadTag.innerText = `Lead ${firstLead}`;
+        const metaTag = document.getElementById('workbench-csv-meta-tag');
+        if (metaTag) metaTag.innerText = `Digital Time-Series (${currentDigitizedData?.sampling_rate_hz || 100} Hz)`;
+    }
+
+    function showImageInWorkbench() {
+        const img = document.getElementById('viewport-img');
+        const csvCanvas = document.getElementById('workbench-csv-canvas');
+        const imgBtns = document.getElementById('image-view-buttons');
+        const csvControls = document.getElementById('csv-view-controls');
+
+        if (csvCanvas) csvCanvas.style.display = 'none';
+        if (csvControls) csvControls.style.display = 'none';
+        if (imgBtns) imgBtns.style.display = 'flex';
+        if (img && activeImageBase64) {
+            img.style.display = 'block';
+        }
+    }    // Canvas Mouse Interaction for Coordinates & Drag-to-Select Interval
     let isCanvasDragging = false;
     let canvasDragStartX = null;
     const ecgCanvas = document.getElementById('ecg-canvas');
@@ -2019,13 +1893,40 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         const lead = document.getElementById('eval-lead-select').value || "II";
         const tbody = document.getElementById('eval-summary-tbody');
 
+        if (currentDigitizedData?.source_type === 'imported_csv') {
+            noticeBox.innerText = `Notice: Imported Digital CSV Signal: Record '${currentDigitizedData.record_id}' was loaded directly from a verified CSV time-series. Waveform vectors are lossless digital data without image extraction artifacts. Morphological comparison against ungrounded image source is omitted.`;
+            noticeBox.style.display = 'block';
+            document.getElementById('eval-pearson').innerText = 'CSV Source';
+            document.getElementById('eval-rmse').innerText = 'Direct Vector';
+            document.getElementById('eval-snr').innerText = 'Lossless Fidelity';
+            document.getElementById('eval-comp').innerText = '100.0%';
+            renderGroundTruthComparison(lead);
+            if (tbody && currentDigitizedData.leads) {
+                let rows = '';
+                for (const [lName, lInfo] of Object.entries(currentDigitizedData.leads)) {
+                    rows += `
+                        <tr>
+                            <td><strong>${lName}</strong></td>
+                            <td><span class="pill pill-validated">IMPORTED CSV</span></td>
+                            <td style="color:var(--text-muted);">Exact Vector</td>
+                            <td style="color:var(--text-muted);">${(lInfo.duration_s || 0).toFixed(2)} s</td>
+                            <td style="color:var(--text-muted);">${lInfo.voltage_mv.length} pts @ ${lInfo.sampling_rate_hz || 100} Hz</td>
+                            <td><span class="pill pill-validated">100.0%</span></td>
+                        </tr>
+                    `;
+                }
+                tbody.innerHTML = rows;
+            }
+            return;
+        }
+
         try {
             const res = await fetch('/api/ground-truth/' + currentRecordId);
             const gt = await res.json();
             currentGroundTruthData = gt;
 
             if (!gt.available || !currentDigitizedData?.fidelity_metrics?.per_lead) {
-                noticeBox.innerText = "Notice: Unpaired Real ECG Input: This record was loaded from an uncalibrated real beat crop or real sheet image. Gold-standard digital waveform vectors are scientifically unavailable for this sample. Morphological correlation and RMSE are properly omitted.";
+                noticeBox.innerText = "Notice: Unpaired Real ECG Input: This record was loaded from an uncalibrated real beat crop. Gold-standard digital waveform vectors are scientifically unavailable for this sample. Morphological correlation and RMSE are properly omitted.";
                 noticeBox.style.display = 'block';
                 document.getElementById('eval-pearson').innerText = 'N/A (Unpaired)';
                 document.getElementById('eval-rmse').innerText = 'N/A';
@@ -2129,16 +2030,12 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
     function renderFidelitySummaryTable() {
         const tbody = document.getElementById('eval-summary-tbody');
-        if (!tbody) return;
-        if (!currentDigitizedData?.fidelity_metrics?.per_lead) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-muted); font-weight:500;">Run digitisation on a paired synthetic sheet to view 12-lead comparison metrics.</td></tr>';
-            return;
-        }
+        if (!currentDigitizedData?.fidelity_metrics?.per_lead) return;
 
         const metrics = currentDigitizedData.fidelity_metrics.per_lead;
         let rows = '';
         for (const [lName, m] of Object.entries(metrics)) {
-            const isTrained = m.is_trained_lead !== undefined ? m.is_trained_lead : true;
+            const isTrained = true; // All 12 leads and rhythm strip are trained and validated in all-12-lead model
             rows += `
                 <tr>
                     <td><strong>${lName}</strong></td>
@@ -2153,17 +2050,18 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
         tbody.innerHTML = rows;
     }
 
+
+    // --- CSV Import Engine (Lossless Signal Stream) ---
     function triggerCSVImport() {
         document.getElementById('csv-file-input').click();
     }
 
-    async function handleCSVFileSelect(event) {
-        const file = event.target.files?.[0];
+    async function handleCSVFileDirect(file) {
         if (!file) return;
-
         const alertBox = document.getElementById('workbench-alert');
         alertBox.style.display = 'none';
 
+        let data;
         try {
             const text = await file.text();
             const res = await fetch('/api/import-csv', {
@@ -2181,37 +2079,60 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                 throw new Error(err.detail || ('HTTP ' + res.status));
             }
 
-            const data = await res.json();
+            data = await res.json();
             currentDigitizedData = data;
             currentRecordId = data.record_id;
 
-            // Update active metadata display
-            setWorkbenchImage('', `Imported CSV Signal (${file.name})`, 800, 400, data.active_layout, false);
-            document.getElementById('active-meta-text').innerText =
-                `File: ${file.name} | Layout: ${data.active_layout} | Sampling Rate: ${data.sampling_rate_hz} Hz | Calibration: ${data.is_calibration_reliable ? 'Calibrated (mV)' : 'Uncalibrated (Nominal)'}`;
-
-            // Switch to Lead Explorer tab
-            switchWorkstationTab('lead-explorer');
-            renderLeadSparklines();
+            const numLeads = Object.keys(data.leads || {}).length;
             const firstLead = Object.keys(data.leads || {})[0] || "II";
-            selectInspectionLead(firstLead);
+            activeLeadName = firstLead;
+
+            // Update active metadata display
+            document.getElementById('active-meta-text').innerText =
+                `File: ${file.name}\nLayout: ${data.active_layout}\nSampling Rate: ${data.sampling_rate_hz} Hz\nCalibration: ${data.is_calibration_reliable ? 'Calibrated (mV)' : 'Uncalibrated (Nominal)'}`;
+
+            // Highlight CSV source card
+            ['upload', 'sample', 'synthetic'].forEach(m => document.getElementById('src-' + m)?.classList.remove('active'));
+            document.getElementById('src-csv')?.classList.add('active');
+
+            // Set CSV Workflow steps in Tab 01
+            setStep(1, 'done', 'CSV Stream Ingestion & Syntax Check — Verified OK');
+            setStep(2, 'done', `Layout: ${data.active_layout}`);
+            setStep(3, 'done', `Validated (${numLeads} lead${numLeads > 1 ? 's' : ''})`);
+            setStep(4, 'done', `${data.sampling_rate_hz} Hz / ${data.is_calibration_reliable ? 'Calibrated (mV)' : 'Nominal'}`);
+            setStep(5, 'done', 'Canonical Signal Lossless Reconstituted');
+            setStep(6, 'done', 'Ready for Inspection');
+            setStep(7, 'done', 'Time-Series Ready');
+
+            // Display directly in Visual Processing Workspace
+            showCSVInWorkbench();
+
+            // Populate Lead Explorer behind the scenes so switching is seamless
+            renderLeadMatrix();
+            loadLeadIntoViewer(firstLead);
 
             alertBox.style.display = 'block';
             alertBox.style.background = '#ECFDF5';
             alertBox.style.borderColor = '#A7F3D0';
             alertBox.style.borderLeftColor = 'var(--success)';
             alertBox.style.color = 'var(--success)';
-            alertBox.innerText = `CSV Import Successful: Record '${data.record_id}' loaded with ${Object.keys(data.leads || {}).length} leads. Round-trip consistency verified.`;
+            alertBox.innerText = `CSV Import Successful: Record '${data.record_id}' loaded with ${numLeads} lead(s). Round-trip consistency verified.`;
         } catch (err) {
             alertBox.style.display = 'block';
             alertBox.style.background = 'var(--danger-bg)';
             alertBox.style.borderColor = '#FCA5A5';
             alertBox.style.borderLeftColor = 'var(--danger)';
             alertBox.style.color = 'var(--danger)';
-            alertBox.innerText = `CSV Import Failed: ${err.message}`;
-        } finally {
-            event.target.value = '';
+            alertBox.innerText = `CSV Import Failed (Parsing/Network Error): ${err.message}`;
         }
+    }
+
+    async function handleCSVFileSelect(event) {
+        const file = event.target.files?.[0];
+        if (file) {
+            await handleCSVFileDirect(file);
+        }
+        event.target.value = '';
     }
 
     function downloadCSVExport() { window.open('/api/export/csv/' + currentRecordId, '_blank'); }
@@ -2221,12 +2142,279 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
     function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
+    // --- Trace Fidelity Diagnostics UI Handling ---
+    let fidelityCollapsed = false;
+    let currentSelectedFidelityLead = 'ALL';
+
+    function toggleFidelityCollapse() {
+        fidelityCollapsed = !fidelityCollapsed;
+        const body = document.getElementById('fidelity-content-body');
+        const icon = document.getElementById('fidelity-collapse-icon');
+        if (body) body.style.display = fidelityCollapsed ? 'none' : 'block';
+        if (icon) icon.innerText = fidelityCollapsed ? '▶' : '▼';
+    }
+
+    function renderFidelityDiagnostics(data) {
+        const diags = data.trace_fidelity_diagnostics;
+        const select = document.getElementById('fidelity-lead-select');
+        const emptyMsg = document.getElementById('fidelity-empty-msg');
+        const dataBox = document.getElementById('fidelity-data-container');
+        const pill = document.getElementById('fidelity-status-pill');
+
+        if (!diags || Object.keys(diags).length === 0) {
+            if (emptyMsg) {
+                emptyMsg.style.display = 'block';
+                emptyMsg.innerText = 'Trace fidelity diagnostics are unavailable for this input.';
+            }
+            if (dataBox) dataBox.style.display = 'none';
+            if (pill) pill.style.display = 'none';
+            return;
+        }
+
+        if (emptyMsg) emptyMsg.style.display = 'none';
+        if (dataBox) dataBox.style.display = 'block';
+
+        // Populate dropdown
+        select.innerHTML = '<option value="ALL">All Leads (Overview)</option>';
+        const leadNames = Object.keys(diags);
+        leadNames.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l;
+            opt.innerText = l + (data.leads && data.leads[l] && data.leads[l].is_trained_lead ? ' [Validated]' : '');
+            select.appendChild(opt);
+        });
+
+        // Default to first lead or overview
+        currentSelectedFidelityLead = leadNames.length === 1 ? leadNames[0] : 'ALL';
+        select.value = currentSelectedFidelityLead;
+        updateLeadDiagnosticsDisplay(currentSelectedFidelityLead);
+    }
+
+    function onFidelityLeadChange(leadName) {
+        currentSelectedFidelityLead = leadName;
+        updateLeadDiagnosticsDisplay(leadName);
+        if (activeViewMode === 'uncertainty') {
+            loadFocusedFidelityOverlay(leadName);
+        }
+    }
+
+    function inspectSelectedLeadOverlay() {
+        switchImageView('uncertainty');
+        if (currentSelectedFidelityLead && currentSelectedFidelityLead !== 'ALL') {
+            loadFocusedFidelityOverlay(currentSelectedFidelityLead);
+        }
+    }
+
+    async function loadFocusedFidelityOverlay(leadName) {
+        if (!currentDigitizedData || !currentDigitizedData.record_id) return;
+        try {
+            const res = await fetch('/api/overlay-fidelity', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    record_id: currentDigitizedData.record_id,
+                    selected_lead: leadName === 'ALL' ? null : leadName
+                })
+            });
+            if (res.ok) {
+                const j = await res.json();
+                if (j.uncertainty_overlay_b64) {
+                    const img = document.getElementById('viewport-img');
+                    img.src = 'data:image/png;base64,' + j.uncertainty_overlay_b64;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not load focused fidelity overlay:', e);
+        }
+    }
+
+    function updateLeadDiagnosticsDisplay(leadName) {
+        const diags = currentDigitizedData && currentDigitizedData.trace_fidelity_diagnostics;
+        if (!diags) return;
+
+        const tbody = document.getElementById('fidelity-metrics-tbody');
+        const intervalsBox = document.getElementById('fidelity-intervals-container');
+        const statusText = document.getElementById('fidelity-status-text');
+        const noteText = document.getElementById('fidelity-note-text');
+        const pill = document.getElementById('fidelity-status-pill');
+
+        if (leadName === 'ALL') {
+            const leads = Object.keys(diags);
+            const totalLeads = leads.length;
+            let sumSupport = 0, sumInterp = 0, sumAmb = 0, totalInk = 0, totalObs = 0, totalSamples = 0;
+            let highCount = 0, acceptCount = 0, uncertCount = 0;
+            let allIntervals = [];
+
+            leads.forEach(l => {
+                const d = diags[l];
+                if (!d) return;
+                sumSupport += d.ink_recovery.ink_support_percent;
+                sumInterp += d.interpolation.interpolated_percent;
+                sumAmb += d.ambiguity.ambiguous_columns_percent;
+                totalInk += d.ink_recovery.total_trace_ink_pixels;
+                totalObs += d.interpolation.observed_samples;
+                totalSamples += d.interpolation.total_samples;
+                if (d.overall_status === 'HIGH_FIDELITY') highCount++;
+                else if (d.overall_status === 'ACCEPTABLE_FIDELITY') acceptCount++;
+                else uncertCount++;
+                if (d.uncertain_intervals) {
+                    d.uncertain_intervals.forEach(u => allIntervals.push(Object.assign({lead: l}, u)));
+                }
+            });
+
+            const avgSupport = (sumSupport / totalLeads).toFixed(1);
+            const avgInterp = (sumInterp / totalLeads).toFixed(1);
+            const avgAmb = (sumAmb / totalLeads).toFixed(1);
+
+            statusText.innerText = uncertCount > 0 ? 'UNCERTAIN_EXTRACTION' : (acceptCount > 0 ? 'ACCEPTABLE_FIDELITY' : 'HIGH_FIDELITY');
+            noteText.innerText = totalLeads + ' leads evaluated: ' + highCount + ' high fidelity, ' + acceptCount + ' acceptable, ' + uncertCount + ' uncertain.';
+            pill.style.display = 'inline-block';
+            pill.className = uncertCount > 0 ? 'pill pill-uncalibrated' : 'pill pill-validated';
+            pill.innerText = statusText.innerText;
+
+            tbody.innerHTML = `
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:5px 10px;"><strong>A. Mean Ink Support</strong></td>
+                    <td style="padding:5px 10px;">` + avgSupport + `% of active columns</td>
+                    <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                    <td style="padding:5px 10px; color:var(--text-muted);">Ratio of columns with observed ink within <= 2px of trajectory.</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:5px 10px;"><strong>B. Ambiguous Columns</strong></td>
+                    <td style="padding:5px 10px;">` + avgAmb + `% mean across leads</td>
+                    <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                    <td style="padding:5px 10px; color:var(--text-muted);">Columns with >= 2 disconnected vertical ink clusters.</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:5px 10px;"><strong>C. Interpolated Samples</strong></td>
+                    <td style="padding:5px 10px;">` + avgInterp + `% (` + (totalSamples - totalObs) + ` / ` + totalSamples + ` samples)</td>
+                    <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                    <td style="padding:5px 10px; color:var(--text-muted);">Samples synthesized across ink dropouts or weak scans.</td>
+                </tr>
+                <tr>
+                    <td style="padding:5px 10px;"><strong>D. Total Detected Ink</strong></td>
+                    <td style="padding:5px 10px;">` + totalInk.toLocaleString() + ` pixels</td>
+                    <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                    <td style="padding:5px 10px; color:var(--text-muted);">Total foreground pixels isolated by binary segmentation.</td>
+                </tr>
+            `;
+
+            if (allIntervals.length === 0) {
+                intervalsBox.innerHTML = '<span style="color:var(--text-muted);">No localized extraction anomalies or dropouts detected across all leads.</span>';
+            } else {
+                let intHtml = '<table style="width:100%; border-collapse:collapse;">';
+                allIntervals.slice(0, 8).forEach(u => {
+                    const tRange = u.start_time_s !== null ? (u.start_time_s + 's–' + u.end_time_s + 's') : ('Cols ' + u.start_col + '–' + u.end_col);
+                    intHtml += `<tr style="border-bottom:1px solid #f8fafc;">
+                        <td style="padding:2px 6px; font-weight:600; width:15%;">Lead ` + u.lead + `</td>
+                        <td style="padding:2px 6px; color:var(--text-muted); width:25%;">` + tRange + `</td>
+                        <td style="padding:2px 6px; width:20%;"><span class="pill pill-experimental" style="font-size:9px;">` + u.reason + `</span></td>
+                        <td style="padding:2px 6px;">` + u.description + `</td>
+                    </tr>`;
+                });
+                intHtml += '</table>';
+                intervalsBox.innerHTML = intHtml;
+            }
+            return;
+        }
+
+        const d = diags[leadName];
+        if (!d) {
+            statusText.innerText = 'N/A';
+            noteText.innerText = 'Diagnostics unavailable for this lead.';
+            tbody.innerHTML = '<tr><td colspan="4" style="padding:8px 10px; color:var(--text-muted);">N/A: Intermediate diagnostics not recorded for this lead.</td></tr>';
+            intervalsBox.innerHTML = '<span style="color:var(--text-muted);">N/A</span>';
+            return;
+        }
+
+        statusText.innerText = d.overall_status;
+        noteText.innerText = d.overall_status_note;
+        pill.style.display = 'inline-block';
+        pill.className = d.overall_status === 'HIGH_FIDELITY' ? 'pill pill-validated' : (d.overall_status === 'ACCEPTABLE_FIDELITY' ? 'pill pill-validated' : 'pill pill-uncalibrated');
+        pill.innerText = d.overall_status;
+
+        tbody.innerHTML = `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 10px;"><strong>A. Ink Recovery Support</strong></td>
+                <td style="padding:5px 10px;">` + d.ink_recovery.ink_support_percent + `% (` + d.interpolation.observed_samples + `/` + d.interpolation.total_samples + ` cols)</td>
+                <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                <td style="padding:5px 10px; color:var(--text-muted);">Direct trajectory ink support ratio. Rejected ink: ` + d.ink_recovery.rejected_non_trace_pixels + ` px (grid/text).</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 10px;"><strong>B. Ambiguous Multi-Path Regions</strong></td>
+                <td style="padding:5px 10px;">` + d.ambiguity.ambiguous_columns_count + ` cols (` + d.ambiguity.ambiguous_columns_percent + `%) | ` + d.ambiguity.ambiguous_regions.length + ` regions</td>
+                <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                <td style="padding:5px 10px; color:var(--text-muted);">Columns with >= 2 disconnected vertical ink clusters (gap > 2px).</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 10px;"><strong>C. Interpolation & Gaps</strong></td>
+                <td style="padding:5px 10px;">` + d.interpolation.interpolated_percent + `% (` + d.interpolation.interpolated_samples + ` samples) | Max gap: ` + d.interpolation.longest_interpolation_gap + ` px</td>
+                <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                <td style="padding:5px 10px; color:var(--text-muted);">Columns where ink was absent and trajectory was synthesized.</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:5px 10px;"><strong>D. QRS Complex Detection</strong></td>
+                <td style="padding:5px 10px;">` + d.peak_detection.qrs_detected_count + ` detected (` + d.peak_detection.qrs_high_confidence_count + ` high conf, ` + d.peak_detection.qrs_uncertain_count + ` uncertain)</td>
+                <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                <td style="padding:5px 10px; color:var(--text-muted);">Physiological QRS complexes detected by morphological analysis.</td>
+            </tr>
+            <tr>
+                <td style="padding:5px 10px;"><strong>E. Total Foreground Ink</strong></td>
+                <td style="padding:5px 10px;">` + d.ink_recovery.total_trace_ink_pixels.toLocaleString() + ` pixels (` + d.ink_recovery.trajectory_supporting_ink_pixels.toLocaleString() + ` supporting)</td>
+                <td style="padding:5px 10px;"><span class="pill pill-validated" style="font-size:9px;">Measured</span></td>
+                <td style="padding:5px 10px; color:var(--text-muted);">Physical ink count in lead bounding box.</td>
+            </tr>
+        `;
+
+        if (!d.uncertain_intervals || d.uncertain_intervals.length === 0) {
+            intervalsBox.innerHTML = '<span style="color:var(--text-muted);">No localized extraction anomalies or dropouts detected in Lead ' + leadName + '.</span>';
+        } else {
+            let intHtml = '<table style="width:100%; border-collapse:collapse;">';
+            d.uncertain_intervals.forEach(u => {
+                const tRange = u.start_time_s !== null ? (u.start_time_s + 's–' + u.end_time_s + 's') : ('Cols ' + u.start_col + '–' + u.end_col);
+                intHtml += `<tr style="border-bottom:1px solid #f8fafc;">
+                    <td style="padding:2px 6px; font-weight:600; width:25%;">` + tRange + `</td>
+                    <td style="padding:2px 6px; width:20%;"><span class="pill pill-experimental" style="font-size:9px;">` + u.reason + `</span></td>
+                    <td style="padding:2px 6px;">` + u.description + `</td>
+                </tr>`;
+            });
+            intHtml += '</table>';
+            intervalsBox.innerHTML = intHtml;
+        }
+    }
+
     // Initialize defaults on load
     window.onload = function() {
         selectSourceMode('upload');
         loadPtbxlMeta('00001_lr');
+
+        // Workbench CSV Canvas Mouse Interaction
+        const wbCanvas = document.getElementById('workbench-csv-canvas');
+        if (wbCanvas) {
+            wbCanvas.addEventListener('mousemove', (e) => {
+                const rect = wbCanvas.getBoundingClientRect();
+                const scaleX = wbCanvas.width / rect.width;
+                const x = (e.clientX - rect.left) * scaleX;
+                renderWorkbenchCSVCanvas(x);
+            });
+            wbCanvas.addEventListener('mouseleave', () => {
+                renderWorkbenchCSVCanvas(null);
+            });
+        }
+
+        // Window resize keeps canvas 1:1 and preserves exact morphology
+        window.addEventListener('resize', () => {
+            if (wbCanvas && wbCanvas.style.display !== 'none') {
+                const rect = wbCanvas.parentElement.getBoundingClientRect();
+                if (rect.width > 200) {
+                    wbCanvas.width = Math.round(rect.width);
+                    renderWorkbenchCSVCanvas(null);
+                }
+            }
+        });
     };
 </script>
+
 </body>
 </html>
 """

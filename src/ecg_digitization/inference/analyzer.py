@@ -21,6 +21,24 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class QRSComplex:
+    """Detailed fiducial landmarks for a single detected QRS complex."""
+
+    r_idx: int
+    r_time_s: float
+    r_voltage_mv: float
+    is_inverted: bool
+    q_idx: Optional[int] = None
+    q_time_s: Optional[float] = None
+    q_voltage_mv: Optional[float] = None
+    s_idx: Optional[int] = None
+    s_time_s: Optional[float] = None
+    s_voltage_mv: Optional[float] = None
+    qrs_duration_ms: Optional[float] = None
+    confidence: float = 1.0
+
+
+@dataclass
 class RhythmAnalysisResult:
     """Findings from rule-based physiological rhythm analysis."""
 
@@ -55,8 +73,8 @@ class ECGRhythmAnalyzer:
             return signal
         return filtfilt(b, a, signal)
 
-    def detect_r_peaks(self, signal: np.ndarray) -> np.ndarray:
-        """Detects QRS R-peaks using bandpass filtering, squaring, and minimum-distance peak finding."""
+    def detect_r_peaks(self, signal: np.ndarray, lead_name: str = "II") -> np.ndarray:
+        """Detects QRS peaks supporting upright, inverted (e.g. aVR), and biphasic morphologies."""
         if len(signal) < int(self.fs * 0.5):
             return np.array([], dtype=int)
 
@@ -79,16 +97,109 @@ class ECGRhythmAnalyzer:
 
         # Refine slope candidate peaks to actual local signal voltage apex within [-80 ms, +80 ms]
         search_radius = max(2, int(0.08 * self.fs))
+        baseline = float(np.median(signal))
+        is_lead_typically_inverted = lead_name.upper() in ("AVR", "V1")
+
         refined_peaks: List[int] = []
         for cp in candidate_peaks:
             w_start = max(0, cp - search_radius)
             w_end = min(len(signal), cp + search_radius + 1)
             if w_end > w_start:
-                local_apex = w_start + int(np.argmax(signal[w_start:w_end]))
+                window = signal[w_start:w_end]
+                pos_dev = float(np.max(window) - baseline)
+                neg_dev = float(baseline - np.min(window))
+
+                # Determine polarity: inverted if downward deflection dominates significantly
+                if is_lead_typically_inverted or (neg_dev > 1.35 * max(0.01, pos_dev)):
+                    local_apex = w_start + int(np.argmin(window))
+                else:
+                    local_apex = w_start + int(np.argmax(window))
+
                 if local_apex not in refined_peaks:
                     refined_peaks.append(local_apex)
 
         return np.array(sorted(refined_peaks), dtype=int) if refined_peaks else np.array([], dtype=int)
+
+    def detect_qrs_complexes(self, signal: np.ndarray, lead_name: str = "II") -> List[QRSComplex]:
+        """Detects full QRS complexes with R-peaks, Q onsets, and S offsets with uncertainty gating."""
+        sig = np.asarray(signal, dtype=np.float32).flatten()
+        r_peaks = self.detect_r_peaks(sig, lead_name=lead_name)
+        if len(r_peaks) == 0:
+            return []
+
+        baseline = float(np.median(sig))
+        is_lead_typically_inverted = lead_name.upper() in ("AVR", "V1")
+        complexes: List[QRSComplex] = []
+
+        q_window = max(2, int(0.08 * self.fs))
+        s_window = max(2, int(0.08 * self.fs))
+
+        for r_idx in r_peaks:
+            r_val = float(sig[r_idx])
+            r_time = float(r_idx / self.fs)
+            is_inverted = is_lead_typically_inverted or (baseline - r_val > abs(r_val - baseline) * 0.7)
+
+            # Search Q onset preceding R
+            q_idx: Optional[int] = None
+            q_time: Optional[float] = None
+            q_val: Optional[float] = None
+            q_start = max(0, r_idx - q_window)
+            if r_idx > q_start + 1:
+                q_seg = sig[q_start:r_idx]
+                if is_inverted:
+                    cand_q = q_start + int(np.argmax(q_seg))
+                else:
+                    cand_q = q_start + int(np.argmin(q_seg))
+                # Reliable check: must be distinct inflection from R
+                if abs(sig[cand_q] - r_val) > 0.04 and (r_idx - cand_q) >= 1:
+                    q_idx = cand_q
+                    q_time = float(cand_q / self.fs)
+                    q_val = float(sig[cand_q])
+
+            # Search S offset following R
+            s_idx: Optional[int] = None
+            s_time: Optional[float] = None
+            s_val: Optional[float] = None
+            s_end = min(len(sig), r_idx + s_window + 1)
+            if s_end > r_idx + 1:
+                s_seg = sig[r_idx + 1:s_end]
+                if is_inverted:
+                    cand_s = r_idx + 1 + int(np.argmax(s_seg))
+                else:
+                    cand_s = r_idx + 1 + int(np.argmin(s_seg))
+                if abs(sig[cand_s] - r_val) > 0.04 and (cand_s - r_idx) >= 1:
+                    s_idx = cand_s
+                    s_time = float(cand_s / self.fs)
+                    s_val = float(sig[cand_s])
+
+            duration_ms: Optional[float] = None
+            confidence = 1.0
+            if q_idx is not None and s_idx is not None:
+                duration_ms = float((s_idx - q_idx) / self.fs * 1000.0)
+                # Physiological QRS duration check (40 ms to 180 ms)
+                if not (35.0 <= duration_ms <= 220.0):
+                    confidence = 0.6  # Uncertainty tag
+            elif q_idx is None and s_idx is None:
+                confidence = 0.75  # R peak confident, boundaries ambiguous
+
+            complexes.append(
+                QRSComplex(
+                    r_idx=int(r_idx),
+                    r_time_s=r_time,
+                    r_voltage_mv=r_val,
+                    is_inverted=is_inverted,
+                    q_idx=q_idx,
+                    q_time_s=q_time,
+                    q_voltage_mv=q_val,
+                    s_idx=s_idx,
+                    s_time_s=s_time,
+                    s_voltage_mv=s_val,
+                    qrs_duration_ms=duration_ms,
+                    confidence=confidence,
+                )
+            )
+
+        return complexes
 
     def analyze_signal(
         self,
@@ -121,7 +232,7 @@ class ECGRhythmAnalyzer:
             )
 
         # 2. Peak Detection
-        peaks = self.detect_r_peaks(sig)
+        peaks = self.detect_r_peaks(sig, lead_name=lead_name)
         num_peaks = len(peaks)
 
         if num_peaks < 2:
