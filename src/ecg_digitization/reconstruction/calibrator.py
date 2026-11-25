@@ -7,10 +7,13 @@ and exports reconstructed signals to CSV and diagnostic plots.
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib
 matplotlib.use("Agg")
@@ -19,6 +22,7 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 
+from ecg_digitization.data.types import CanonicalECGSignal, LeadSignal
 from ecg_digitization.reconstruction.extractor import ExtractedTrace
 
 logger = logging.getLogger(__name__)
@@ -78,6 +82,34 @@ class ReconstructedECG:
         "II_RHYTHM",
     ]
 
+    def to_canonical(self, record_id: str = "reconstructed_ecg", source_type: str = "digitized_ecg") -> CanonicalECGSignal:
+        """Converts ReconstructedECG to CanonicalECGSignal container."""
+        canonical_leads: Dict[str, LeadSignal] = {}
+        for name, lead in self.leads.items():
+            canonical_leads[name] = LeadSignal(
+                lead_name=lead.lead_name,
+                voltage=lead.voltage_mv,
+                time_seconds=lead.time_seconds,
+                sampling_rate_hz=lead.sampling_rate_hz,
+                units="mV" if lead.is_calibration_reliable else "relative_units",
+                is_calibrated=lead.is_calibration_reliable,
+                completeness=lead.completeness,
+                is_trained_lead=lead.is_trained_lead,
+                validation_status=lead.validation_status,
+                confidence=lead.confidence,
+            )
+        return CanonicalECGSignal(
+            record_id=record_id,
+            leads=canonical_leads,
+            sampling_rate_hz=self.sampling_rate_hz,
+            layout_name=self.layout_name,
+            units="mV" if self.is_calibration_reliable else "relative_units",
+            is_calibration_reliable=self.is_calibration_reliable,
+            calibration_standard="Calibrated Physical Voltage (mV)" if self.is_calibration_reliable else "Uncalibrated / Normalized Amplitude",
+            calibration_note=self.calibration_note,
+            source_type=source_type,
+        )
+
     def to_dataframe(self) -> pd.DataFrame:
         """Converts synchronized leads into a pandas DataFrame in standard clinical ordering."""
         max_len = max(len(lead.voltage_mv) for lead in self.leads.values()) if self.leads else 0
@@ -101,27 +133,8 @@ class ReconstructedECG:
 
     def save_csv(self, output_path: Union[str, Path]) -> Path:
         """Exports digital ECG waveforms to a unified CSV file with provenance metadata."""
-        df = self.to_dataframe()
         out = Path(output_path)
-        out.parent.mkdir(parents=True, exist_ok=True)
-
-        validated_leads = [k for k, l in self.leads.items() if l.is_trained_lead]
-        experimental_leads = [k for k, l in self.leads.items() if not l.is_trained_lead]
-
-        header_lines = [
-            "# ECG DigiAI — Unified Reconstructed ECG Waveform Record\n",
-            f"# Layout: {self.layout_name} | Sampling Rate: {self.sampling_rate_hz:.1f} Hz | Calibration Reliable: {self.is_calibration_reliable}\n",
-            f"# Calibration Standard: {'Calibrated Physical Voltage (mV)' if self.is_calibration_reliable else 'Uncalibrated / Normalized Amplitude'}\n",
-            f"# Calibration Note: {self.calibration_note or ('Standard paper calibration (25 mm/s, 10 mm/mV)' if self.is_calibration_reliable else 'Uncalibrated input: voltage represents relative deflection')}\n",
-            f"# Validated Leads: {', '.join([k for k, l in self.leads.items() if l.is_trained_lead]) if any(l.is_trained_lead for l in self.leads.values()) else 'None'}\n",
-            f"# Leads Present ({len(self.leads)}): {', '.join(self.leads.keys())}\n",
-        ]
-
-        with open(out, "w", newline="", encoding="utf-8") as f:
-            f.writelines(header_lines)
-            df.to_csv(f, index=False, float_format="%.4f")
-
-        logger.info("Saved unified multi-lead CSV: %s", out)
+        export_to_csv(self, output_path=out)
         return out
 
     def save_plot(self, output_path: Union[str, Path], title: str = "Reconstructed 12-Lead ECG") -> Path:
@@ -180,7 +193,7 @@ class SignalReconstructor:
             target_num_samples = 2
 
         orig_time = np.linspace(0, duration_s, num_px)
-        target_time = np.linspace(0, duration_s, target_num_samples)
+        target_time = np.arange(target_num_samples, dtype=np.float32) / self.cal.target_fs_hz
 
         interp_func = interp1d(orig_time, raw_mv, kind="linear", fill_value="extrapolate")
         resampled_mv = interp_func(target_time).astype(np.float32)
@@ -230,3 +243,172 @@ class SignalReconstructor:
             is_calibration_reliable=is_calibration_reliable,
             calibration_note=calibration_note,
         )
+
+
+def export_to_csv(
+    signal: Union[CanonicalECGSignal, ReconstructedECG],
+    output_path: Optional[Union[str, Path]] = None,
+) -> str:
+    """Exports a CanonicalECGSignal or ReconstructedECG to a unified CSV format with provenance metadata."""
+    if isinstance(signal, ReconstructedECG):
+        canonical = signal.to_canonical()
+    else:
+        canonical = signal
+
+    df = canonical.to_dataframe()
+    validated_leads = [k for k, l in canonical.leads.items() if l.is_trained_lead]
+
+    header_lines = [
+        "# ECG DigiAI — Unified Reconstructed ECG Waveform Record\n",
+        f"# Layout: {canonical.layout_name} | Sampling Rate: {canonical.sampling_rate_hz:.1f} Hz | Calibration Reliable: {canonical.is_calibration_reliable}\n",
+        f"# Calibration Standard: {canonical.calibration_standard}\n",
+        f"# Calibration Note: {canonical.calibration_note or ('Standard clinical paper calibration (25 mm/s, 10 mm/mV)' if canonical.is_calibration_reliable else 'Uncalibrated input: voltage represents relative deflection')}\n",
+        f"# Validated Leads: {', '.join(validated_leads) if validated_leads else 'None'}\n",
+        f"# Leads Present ({len(canonical.leads)}): {', '.join(canonical.lead_names)}\n",
+    ]
+
+    csv_body = df.to_csv(index=False, float_format="%.4f")
+    full_text = "".join(header_lines) + csv_body
+
+    if output_path is not None:
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(full_text, encoding="utf-8")
+        logger.info("Saved unified multi-lead CSV: %s", out)
+
+    return full_text
+
+
+def import_from_csv(
+    source: Union[str, Path, io.StringIO, io.TextIOBase],
+    record_id: Optional[str] = None,
+) -> CanonicalECGSignal:
+    """Imports an ECG signal CSV file or text with exact round-trip preservation."""
+    if isinstance(source, Path):
+        text = source.read_text(encoding="utf-8")
+        rec_id = record_id or source.stem.replace("_signal", "")
+    elif isinstance(source, str):
+        p = Path(source)
+        if len(source) < 500 and "\n" not in source and p.is_file():
+            text = p.read_text(encoding="utf-8")
+            rec_id = record_id or p.stem.replace("_signal", "")
+        else:
+            text = source
+            rec_id = record_id or "imported_ecg"
+    else:
+        text = source.read()
+        rec_id = record_id or "imported_ecg"
+
+    lines = text.splitlines()
+    header_meta: Dict[str, Any] = {}
+    csv_lines: List[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            content = stripped.lstrip("#").strip()
+            if "|" in content:
+                parts = [p.strip() for p in content.split("|")]
+                for part in parts:
+                    if ":" in part:
+                        k, v = part.split(":", 1)
+                        header_meta[k.strip().lower()] = v.strip()
+            elif ":" in content:
+                k, v = content.split(":", 1)
+                header_meta[k.strip().lower()] = v.strip()
+        else:
+            if stripped:
+                csv_lines.append(line)
+
+    if not csv_lines:
+        raise ValueError("CSV contains no data rows.")
+
+    csv_data = "\n".join(csv_lines)
+    df = pd.read_csv(io.StringIO(csv_data))
+
+    layout_name = header_meta.get("layout", "auto")
+    fs_val = 100.0
+    if "sampling rate" in header_meta:
+        m = re.search(r"([\d\.]+)", header_meta["sampling rate"])
+        if m:
+            fs_val = float(m.group(1))
+
+    is_cal_reliable = True
+    if "calibration reliable" in header_meta:
+        is_cal_reliable = header_meta["calibration reliable"].lower() in ("true", "1", "yes")
+
+    cal_standard = header_meta.get(
+        "calibration standard",
+        "Calibrated Physical Voltage (mV)" if is_cal_reliable else "Uncalibrated / Normalized Amplitude",
+    )
+    cal_note = header_meta.get("calibration note", "Imported from CSV")
+
+    validated_leads_str = header_meta.get("validated leads", "")
+    validated_leads_set = {
+        l.strip()
+        for l in validated_leads_str.split(",")
+        if l.strip() and l.strip().lower() != "none"
+    }
+
+    # Extract time column
+    time_col = None
+    for c in ("time_s", "time", "t_s", "t", "timestamp"):
+        if c in df.columns:
+            time_col = c
+            break
+
+    if time_col is not None:
+        time_axis = df[time_col].to_numpy(dtype=np.float32)
+        if len(time_axis) > 1 and "sampling rate" not in header_meta:
+            dt = np.median(np.diff(time_axis))
+            if dt > 0:
+                fs_val = round(1.0 / float(dt), 1)
+        lead_cols = [c for c in df.columns if c != time_col]
+    else:
+        time_axis = (np.arange(len(df), dtype=np.float32) / fs_val)
+        lead_cols = list(df.columns)
+
+    if not lead_cols:
+        raise ValueError("No lead columns found in CSV.")
+
+    if layout_name in ("auto", ""):
+        layout_name = "single_lead" if len(lead_cols) == 1 else "3x4_1"
+
+    leads: Dict[str, LeadSignal] = {}
+    for col_name in lead_cols:
+        raw_vals = df[col_name].to_numpy(dtype=np.float32)
+        valid_mask = ~np.isnan(raw_vals)
+        if not np.any(valid_mask):
+            continue
+        last_valid = int(np.where(valid_mask)[0][-1])
+        vals = raw_vals[: last_valid + 1]
+        t_lead = time_axis[: len(vals)]
+
+        is_trained = col_name in validated_leads_set if validated_leads_set else True
+        units = "mV" if is_cal_reliable else "relative_units"
+
+        leads[col_name] = LeadSignal(
+            lead_name=col_name,
+            voltage=vals,
+            time_seconds=t_lead,
+            sampling_rate_hz=fs_val,
+            units=units,
+            is_calibrated=is_cal_reliable,
+            completeness=float(np.mean(valid_mask[: len(vals)])),
+            is_trained_lead=is_trained,
+            validation_status="calibrated_lead" if is_cal_reliable else "uncalibrated_lead",
+            confidence=1.0,
+        )
+
+    return CanonicalECGSignal(
+        record_id=rec_id,
+        leads=leads,
+        sampling_rate_hz=fs_val,
+        layout_name=layout_name,
+        units="mV" if is_cal_reliable else "relative_units",
+        is_calibration_reliable=is_cal_reliable,
+        calibration_standard=cal_standard,
+        calibration_note=cal_note,
+        source_type="imported_csv",
+        metadata={"header_comments": header_meta},
+    )

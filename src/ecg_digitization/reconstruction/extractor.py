@@ -122,7 +122,17 @@ class WaveformExtractor:
                 tail_trimmed = detected_tail
 
         if baseline_y is None:
-            baseline = float(np.median(interpolated_y))
+            # Robust isoelectric baseline estimation:
+            # Look for flat, low-derivative quiescent segments representing the isoelectric line
+            if len(interpolated_y) > 10:
+                diffs = np.abs(np.diff(interpolated_y))
+                flat_mask = np.append(diffs < 0.75, False)
+                if np.sum(flat_mask) >= 8:
+                    baseline = float(np.median(interpolated_y[flat_mask]))
+                else:
+                    baseline = float(np.median(interpolated_y))
+            else:
+                baseline = float(np.median(interpolated_y))
         else:
             baseline = float(baseline_y)
 

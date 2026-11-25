@@ -436,6 +436,7 @@ class LeadLayoutDetector:
 
         elif layout_hint == "single_lead":
             # Single lead or beat crop: entire crop treated as Lead II
+            # baseline_y_hint is None so extractor estimates the true isoelectric baseline from flat segments
             leads["II"] = LeadRegion(
                 lead_name="II",
                 x1=margin_x,
@@ -445,7 +446,7 @@ class LeadLayoutDetector:
                 row=0,
                 col=0,
                 is_rhythm=False,
-                baseline_y_hint=float(usable_h // 2),
+                baseline_y_hint=None,
             )
 
         return LeadDetectionResult(

@@ -28,12 +28,13 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from ecg_digitization.data.parser import WFDBRecordParser
-from ecg_digitization.data.types import ECGRecordPaths
+from ecg_digitization.data.types import CanonicalECGSignal, ECGRecordPaths, LeadSignal
 from ecg_digitization.evaluation.metrics import evaluate_digitization_fidelity
 from ecg_digitization.inference.analyzer import ECGRhythmAnalyzer
 from ecg_digitization.inference.classifier_interface import ECGClassifierInterface
 from ecg_digitization.inference.report_generator import ClinicalReportGenerator
 from ecg_digitization.pipeline.digitizer import ECGDigitizerPipeline
+from ecg_digitization.reconstruction.calibrator import export_to_csv, import_from_csv
 from ecg_digitization.synthetic.generator import (
     DegradationConfig,
     SyntheticECGGenerator,
@@ -299,6 +300,8 @@ def generate_synthetic(req: SyntheticRequest) -> Dict[str, Any]:
         "ground_truth_signal": sig.values,
         "sampling_rate_hz": sig.metadata.sampling_rate_hz,
         "lead_names": sig.metadata.lead_names,
+        "is_synthetic": True,
+        "has_ground_truth": True,
     }
 
     return {
@@ -326,16 +329,18 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
             img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Failed to decode base64 image: {exc}")
-        # Preserve exact ground-truth pairing if rec_id corresponds to a known session or sample record
-        if rec_id in session_records and "ground_truth_signal" in session_records[rec_id]:
-            gt_sig = session_records[rec_id]["ground_truth_signal"]
+        # Only attach ground truth if this specific record was synthetically generated in the active session
+        if rec_id in session_records and session_records[rec_id].get("is_synthetic", False):
+            gt_sig = session_records[rec_id].get("ground_truth_signal")
         else:
-            sig = load_ptbxl_sample(rec_id)
-            if sig is not None:
-                gt_sig = sig.values
+            gt_sig = None
+            session_records[rec_id] = {
+                "is_synthetic": False,
+                "has_ground_truth": False,
+            }
     elif rec_id in session_records and "synthetic_result" in session_records[rec_id]:
         img = session_records[rec_id]["synthetic_result"].image
-        gt_sig = session_records[rec_id]["ground_truth_signal"]
+        gt_sig = session_records[rec_id].get("ground_truth_signal")
     else:
         # Default fallback to sample record 00001_lr
         sig = load_ptbxl_sample("00001_lr")
@@ -344,6 +349,14 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
             img = synth.image
             gt_sig = sig.values
             rec_id = "00001_lr"
+            session_records[rec_id] = {
+                "synthetic_result": synth,
+                "ground_truth_signal": sig.values,
+                "sampling_rate_hz": sig.metadata.sampling_rate_hz,
+                "lead_names": sig.metadata.lead_names,
+                "is_synthetic": True,
+                "has_ground_truth": True,
+            }
 
     if img is None:
         raise HTTPException(status_code=400, detail="No valid ECG image provided.")
@@ -403,23 +416,24 @@ def digitize_image(req: DigitizeRequest) -> Dict[str, Any]:
         rec_leads = {}
         col_leads = synthetic_generator.LAYOUT_3X4_COLUMNS
         sig_obj = load_ptbxl_sample(rec_id)
-        if sig_obj:
-            lead_map = {name.upper(): i for i, name in enumerate(sig_obj.metadata.lead_names)}
-            for col_idx, cols in enumerate(col_leads):
-                t_start = int(col_idx * 2.5 * 100)
-                t_end = int((col_idx + 1) * 2.5 * 100)
-                for l_name in cols:
-                    if l_name in lead_map and l_name in digit_res.reconstructed_ecg.leads:
-                        gt_leads[l_name] = sig_obj.values[lead_map[l_name], t_start:t_end]
-                        rec_leads[l_name] = digit_res.reconstructed_ecg.leads[l_name].voltage_mv
+        raw_vals = gt_sig if sig_obj is None else sig_obj.values
+        lead_name_list = sig_obj.metadata.lead_names if sig_obj else synthetic_generator.STANDARD_12_LEADS
+        lead_map = {name.upper(): i for i, name in enumerate(lead_name_list)}
+        for col_idx, cols in enumerate(col_leads):
+            t_start = int(col_idx * 2.5 * 100)
+            t_end = int((col_idx + 1) * 2.5 * 100)
+            for l_name in cols:
+                if l_name in lead_map and l_name in digit_res.reconstructed_ecg.leads:
+                    gt_leads[l_name] = raw_vals[lead_map[l_name], t_start:t_end]
+                    rec_leads[l_name] = digit_res.reconstructed_ecg.leads[l_name].voltage_mv
 
-            if "II" in lead_map and "II_RHYTHM" in digit_res.reconstructed_ecg.leads:
-                gt_leads["II_RHYTHM"] = sig_obj.values[lead_map["II"], :1000]
-                rec_leads["II_RHYTHM"] = digit_res.reconstructed_ecg.leads["II_RHYTHM"].voltage_mv
+        if "II" in lead_map and "II_RHYTHM" in digit_res.reconstructed_ecg.leads:
+            gt_leads["II_RHYTHM"] = raw_vals[lead_map["II"], :1000]
+            rec_leads["II_RHYTHM"] = digit_res.reconstructed_ecg.leads["II_RHYTHM"].voltage_mv
 
-            if gt_leads:
-                report = evaluate_digitization_fidelity(gt_leads, rec_leads, record_id=rec_id)
-                fidelity_metrics = report.to_dict()
+        if gt_leads:
+            report = evaluate_digitization_fidelity(gt_leads, rec_leads, record_id=rec_id)
+            fidelity_metrics = report.to_dict()
 
     # Cache reconstructed signal in session
     session_records[rec_id] = session_records.get(rec_id, {})
@@ -605,22 +619,160 @@ def export_wfdb(record_id: str) -> Dict[str, Any]:
     raise HTTPException(status_code=404, detail=f"No reconstructed data found for '{record_id}'.")
 
 
+@app.post("/api/import-csv")
+async def api_import_csv(request: Request) -> Dict[str, Any]:
+    """Imports an ECG signal CSV file or text with lossless round-trip preservation."""
+    content_type = request.headers.get("content-type", "")
+    csv_text = ""
+    rec_id = "imported_ecg"
+
+    if "application/json" in content_type:
+        body = await request.json()
+        csv_text = body.get("csv_text", "")
+        rec_id = body.get("record_id") or body.get("filename", "imported_ecg").replace(".csv", "")
+    elif "multipart/form-data" in content_type:
+        form = await request.form()
+        upload_file = form.get("file")
+        if upload_file is not None and hasattr(upload_file, "read"):
+            content_bytes = await upload_file.read()
+            csv_text = content_bytes.decode("utf-8", errors="replace")
+            filename = getattr(upload_file, "filename", "imported_ecg")
+            rec_id = Path(filename).stem.replace("_signal", "")
+    else:
+        body_bytes = await request.body()
+        csv_text = body_bytes.decode("utf-8", errors="replace")
+
+    if not csv_text.strip():
+        raise HTTPException(status_code=400, detail="No CSV content received.")
+
+    try:
+        canonical_sig = import_from_csv(csv_text, record_id=rec_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to parse ECG CSV: {exc}")
+
+    recon_ecg = canonical_sig.to_reconstructed_ecg()
+
+    # Save visualization plot and CSV artifact
+    plot_b64 = ""
+    try:
+        temp_plot = Path("data/interim") / f"plot_{rec_id}.png"
+        recon_ecg.save_plot(temp_plot, title=f"Imported ECG Record: {rec_id}")
+        if temp_plot.is_file():
+            with open(temp_plot, "rb") as f:
+                plot_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+        csv_dir = Path("data/interim/session1_demo_output")
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        recon_ecg.save_csv(csv_dir / f"{rec_id}_signal.csv")
+    except Exception as exc:
+        logger.warning("Could not generate plot for imported CSV: %s", exc)
+
+    # Synthesize pipeline result wrapper for downstream endpoints
+    from ecg_digitization.pipeline.digitizer import DigitizationPipelineResult
+    from ecg_digitization.preprocessing.lead_detector import LeadDetectionResult, LeadRegion
+    from ecg_digitization.preprocessing.enhancement import PreprocessingResult
+
+    dummy_leads = {
+        name: LeadRegion(lead_name=name, x1=0, y1=0, x2=100, y2=100, row=i, col=0, is_rhythm="RHYTHM" in name)
+        for i, name in enumerate(recon_ecg.leads)
+    }
+    dummy_layout = LeadDetectionResult(layout_name=canonical_sig.layout_name, is_supported=True, leads=dummy_leads, warnings=[])
+    dummy_prep = PreprocessingResult(
+        original_bgr=np.zeros((100, 100, 3), dtype=np.uint8),
+        grayscale=np.zeros((100, 100), dtype=np.uint8),
+        contrast_enhanced=np.zeros((100, 100), dtype=np.uint8),
+        deskewed=np.zeros((100, 100, 3), dtype=np.uint8),
+        grid_suppressed=np.zeros((100, 100, 3), dtype=np.uint8),
+        binary_trace=np.zeros((100, 100), dtype=np.uint8),
+        skew_angle_deg=0.0,
+    )
+    dummy_digit_res = DigitizationPipelineResult(
+        preprocessed=dummy_prep,
+        layout=dummy_layout,
+        extracted_traces={},
+        reconstructed_ecg=recon_ecg,
+        success=True,
+        warnings=[],
+        extractor_mode_used="imported_csv",
+        predicted_layout=canonical_sig.layout_name,
+        active_layout=canonical_sig.layout_name,
+        layout_confidence=1.0,
+        is_layout_overridden=False,
+        is_layout_ambiguous=False,
+        layout_probabilities={},
+    )
+
+    session_records[rec_id] = {
+        "canonical_signal": canonical_sig,
+        "digit_result": dummy_digit_res,
+        "is_synthetic": False,
+        "has_ground_truth": False,
+        "plot_b64": plot_b64,
+        "fidelity_metrics": None,
+    }
+
+    leads_data = {}
+    for name, l in recon_ecg.leads.items():
+        leads_data[name] = {
+            "time_s": l.time_seconds.tolist(),
+            "voltage_mv": l.voltage_mv.tolist(),
+            "duration_s": float(l.duration_seconds),
+            "sampling_rate_hz": float(l.sampling_rate_hz),
+            "completeness": float(l.completeness),
+            "is_trained_lead": bool(l.is_trained_lead),
+            "validation_status": l.validation_status,
+            "confidence": float(l.confidence),
+            "is_calibration_reliable": bool(l.is_calibration_reliable),
+        }
+
+    return {
+        "record_id": rec_id,
+        "success": True,
+        "source_type": "imported_csv",
+        "predicted_layout": canonical_sig.layout_name,
+        "active_layout": canonical_sig.layout_name,
+        "layout_confidence": 1.0,
+        "sampling_rate_hz": canonical_sig.sampling_rate_hz,
+        "is_calibration_reliable": canonical_sig.is_calibration_reliable,
+        "calibration_note": canonical_sig.calibration_note,
+        "leads": leads_data,
+        "plot_b64": plot_b64,
+        "fidelity_metrics": None,
+        "warnings": [],
+    }
+
+
 @app.get("/api/ground-truth/{record_id}")
 def get_ground_truth(record_id: str) -> Dict[str, Any]:
     """Retrieves paired ground-truth digital signal for a record if available."""
-    sig_obj = load_ptbxl_sample(record_id)
+    # Only return ground truth if this record is genuinely a synthetic paired sheet
+    is_real_unpaired = (
+        record_id in session_records
+        and not session_records[record_id].get("is_synthetic", False)
+        and not session_records[record_id].get("has_ground_truth", False)
+    )
+    if is_real_unpaired:
+        return {
+            "record_id": record_id,
+            "available": False,
+            "note": "Unpaired real ECG input: Gold-standard digital waveform vectors are scientifically unavailable for this sample.",
+            "leads": {},
+        }
+
     sig_vals = None
     lead_names = []
     fs = 100.0
 
-    if sig_obj is not None:
-        sig_vals = sig_obj.values
-        lead_names = sig_obj.metadata.lead_names
-        fs = sig_obj.metadata.sampling_rate_hz
-    elif record_id in session_records and "ground_truth_signal" in session_records[record_id]:
-        sig_vals = session_records[record_id]["ground_truth_signal"]
+    if record_id in session_records and session_records[record_id].get("is_synthetic", False):
+        sig_vals = session_records[record_id].get("ground_truth_signal")
         lead_names = session_records[record_id].get("lead_names", synthetic_generator.STANDARD_12_LEADS)
         fs = session_records[record_id].get("sampling_rate_hz", 100.0)
+    else:
+        sig_obj = load_ptbxl_sample(record_id)
+        if sig_obj is not None:
+            sig_vals = sig_obj.values
+            lead_names = sig_obj.metadata.lead_names
+            fs = sig_obj.metadata.sampling_rate_hz
 
     if sig_vals is None:
         return {
@@ -640,7 +792,7 @@ def get_ground_truth(record_id: str) -> Dict[str, Any]:
         for l_name in cols:
             if l_name in lead_map:
                 lead_sig = sig_vals[lead_map[l_name], t_start:t_end]
-                time_axis = np.linspace(0, 2.5, len(lead_sig))
+                time_axis = (np.arange(len(lead_sig), dtype=np.float32) / fs)
                 leads_dict[l_name] = {
                     "time_s": time_axis.tolist(),
                     "voltage_mv": lead_sig.tolist(),
@@ -648,7 +800,7 @@ def get_ground_truth(record_id: str) -> Dict[str, Any]:
 
     if "II" in lead_map:
         rhythm_sig = sig_vals[lead_map["II"], : int(10.0 * fs)]
-        time_axis = np.linspace(0, len(rhythm_sig) / fs, len(rhythm_sig))
+        time_axis = (np.arange(len(rhythm_sig), dtype=np.float32) / fs)
         leads_dict["II_RHYTHM"] = {
             "time_s": time_axis.tolist(),
             "voltage_mv": rhythm_sig.tolist(),

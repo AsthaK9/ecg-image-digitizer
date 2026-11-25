@@ -325,7 +325,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     }
 
     /* Input Source Selector Cards */
-    .source-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .source-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
     .source-card {
         border: 1px solid var(--border-strong);
         border-radius: 6px;
@@ -733,7 +733,12 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                             <div class="source-card-title"><svg class="icon"><use href="#i-file"/></svg> Synthetic</div>
                             <div class="source-card-sub">From Lab</div>
                         </div>
+                        <div class="source-card" id="src-csv" role="tab" tabindex="0" onclick="triggerCSVImport()">
+                            <div class="source-card-title"><svg class="icon"><use href="#i-chart"/></svg> CSV</div>
+                            <div class="source-card-sub">Import Signal</div>
+                        </div>
                     </div>
+                    <input type="file" id="csv-file-input" accept=".csv" style="display:none;" onchange="handleCSVFileSelect(event)">
 
                     <!-- Alert message box -->
                     <div id="workbench-alert" style="display:none; background:var(--danger-bg); border:1px solid #FCA5A5; border-left:3px solid var(--danger); color:var(--danger); padding:10px 14px; border-radius:6px; font-size:13px; margin-bottom:14px; font-weight:500;"></div>
@@ -1148,6 +1153,7 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
                     <div style="font-weight:700; font-size:12px; margin-bottom:4px;">Unified Multi-Lead CSV</div>
                     <div style="font-size:11px; color:var(--text-muted); margin-bottom:10px;">Time-series with header metadata</div>
                     <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="downloadCSVExport()">Download CSV</button>
+                    <button class="btn btn-outline btn-sm" style="width:100%; margin-top:6px;" onclick="triggerCSVImport()">Import CSV</button>
                 </div>
                 <div style="border:1px solid var(--border); border-radius:6px; padding:14px; text-align:center; background:#f8fafc;">
                     <div style="font-size:20px; margin-bottom:8px;"><svg class="icon icon-lg" style="color:var(--primary);"><use href="#i-package"/></svg></div>
@@ -2011,20 +2017,24 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
     async function loadEvaluationSection() {
         const noticeBox = document.getElementById('eval-notice-box');
         const lead = document.getElementById('eval-lead-select').value || "II";
+        const tbody = document.getElementById('eval-summary-tbody');
 
         try {
             const res = await fetch('/api/ground-truth/' + currentRecordId);
             const gt = await res.json();
             currentGroundTruthData = gt;
 
-            if (!gt.available) {
-                noticeBox.innerText = "Notice: Unpaired Real ECG Input: This record was loaded from an uncalibrated real beat crop. Gold-standard digital waveform vectors are scientifically unavailable for this sample. Morphological correlation and RMSE are properly omitted.";
+            if (!gt.available || !currentDigitizedData?.fidelity_metrics?.per_lead) {
+                noticeBox.innerText = "Notice: Unpaired Real ECG Input: This record was loaded from an uncalibrated real beat crop or real sheet image. Gold-standard digital waveform vectors are scientifically unavailable for this sample. Morphological correlation and RMSE are properly omitted.";
                 noticeBox.style.display = 'block';
                 document.getElementById('eval-pearson').innerText = 'N/A (Unpaired)';
                 document.getElementById('eval-rmse').innerText = 'N/A';
                 document.getElementById('eval-snr').innerText = 'Qualitative';
                 document.getElementById('eval-comp').innerText = '100%';
                 renderGroundTruthComparison(lead);
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-muted); font-weight:500;">Unpaired Real Input — Digital ground truth is scientifically unavailable for this sample. Morphological correlation and RMSE metrics are not applicable.</td></tr>';
+                }
                 return;
             }
 
@@ -2119,12 +2129,16 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
 
     function renderFidelitySummaryTable() {
         const tbody = document.getElementById('eval-summary-tbody');
-        if (!currentDigitizedData?.fidelity_metrics?.per_lead) return;
+        if (!tbody) return;
+        if (!currentDigitizedData?.fidelity_metrics?.per_lead) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-muted); font-weight:500;">Run digitisation on a paired synthetic sheet to view 12-lead comparison metrics.</td></tr>';
+            return;
+        }
 
         const metrics = currentDigitizedData.fidelity_metrics.per_lead;
         let rows = '';
         for (const [lName, m] of Object.entries(metrics)) {
-            const isTrained = true; // All 12 leads and rhythm strip are trained and validated in all-12-lead model
+            const isTrained = m.is_trained_lead !== undefined ? m.is_trained_lead : true;
             rows += `
                 <tr>
                     <td><strong>${lName}</strong></td>
@@ -2137,6 +2151,67 @@ WORKSTATION_HTML = r"""<!DOCTYPE html>
             `;
         }
         tbody.innerHTML = rows;
+    }
+
+    function triggerCSVImport() {
+        document.getElementById('csv-file-input').click();
+    }
+
+    async function handleCSVFileSelect(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const alertBox = document.getElementById('workbench-alert');
+        alertBox.style.display = 'none';
+
+        try {
+            const text = await file.text();
+            const res = await fetch('/api/import-csv', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    csv_text: text,
+                    filename: file.name,
+                    record_id: file.name.replace(/\.[^/.]+$/, "")
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || ('HTTP ' + res.status));
+            }
+
+            const data = await res.json();
+            currentDigitizedData = data;
+            currentRecordId = data.record_id;
+
+            // Update active metadata display
+            setWorkbenchImage('', `Imported CSV Signal (${file.name})`, 800, 400, data.active_layout, false);
+            document.getElementById('active-meta-text').innerText =
+                `File: ${file.name} | Layout: ${data.active_layout} | Sampling Rate: ${data.sampling_rate_hz} Hz | Calibration: ${data.is_calibration_reliable ? 'Calibrated (mV)' : 'Uncalibrated (Nominal)'}`;
+
+            // Switch to Lead Explorer tab
+            switchWorkstationTab('lead-explorer');
+            renderLeadSparklines();
+            const firstLead = Object.keys(data.leads || {})[0] || "II";
+            selectInspectionLead(firstLead);
+
+            alertBox.style.display = 'block';
+            alertBox.style.background = '#ECFDF5';
+            alertBox.style.borderColor = '#A7F3D0';
+            alertBox.style.borderLeftColor = 'var(--success)';
+            alertBox.style.color = 'var(--success)';
+            alertBox.innerText = `CSV Import Successful: Record '${data.record_id}' loaded with ${Object.keys(data.leads || {}).length} leads. Round-trip consistency verified.`;
+        } catch (err) {
+            alertBox.style.display = 'block';
+            alertBox.style.background = 'var(--danger-bg)';
+            alertBox.style.borderColor = '#FCA5A5';
+            alertBox.style.borderLeftColor = 'var(--danger)';
+            alertBox.style.color = 'var(--danger)';
+            alertBox.innerText = `CSV Import Failed: ${err.message}`;
+        } finally {
+            event.target.value = '';
+        }
     }
 
     function downloadCSVExport() { window.open('/api/export/csv/' + currentRecordId, '_blank'); }

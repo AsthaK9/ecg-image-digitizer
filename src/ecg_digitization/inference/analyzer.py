@@ -75,8 +75,20 @@ class ECGRhythmAnalyzer:
         # Physiological constraint: minimum 250 ms between successive heartbeats (max ~240 bpm)
         min_dist = max(2, int(0.25 * self.fs))
 
-        peaks, _ = find_peaks(integrated, height=thresh, distance=min_dist)
-        return peaks
+        candidate_peaks, _ = find_peaks(integrated, height=thresh, distance=min_dist)
+
+        # Refine slope candidate peaks to actual local signal voltage apex within [-80 ms, +80 ms]
+        search_radius = max(2, int(0.08 * self.fs))
+        refined_peaks: List[int] = []
+        for cp in candidate_peaks:
+            w_start = max(0, cp - search_radius)
+            w_end = min(len(signal), cp + search_radius + 1)
+            if w_end > w_start:
+                local_apex = w_start + int(np.argmax(signal[w_start:w_end]))
+                if local_apex not in refined_peaks:
+                    refined_peaks.append(local_apex)
+
+        return np.array(sorted(refined_peaks), dtype=int) if refined_peaks else np.array([], dtype=int)
 
     def analyze_signal(
         self,
